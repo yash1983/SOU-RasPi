@@ -1,0 +1,43 @@
+I want to develop a solution in python to demonstrate the use of raspberrypi as a controller.
+
+raspberrypi pi will later be used as a turnstile and flap barrier controller in production.
+
+but the current demo is about showcasing how a raspberrypi device can act as a controller and allow user entry through QR code scanning.
+
+We want to demonstrate a case with three gates. Gate A, B and C. if user has purchased a ticket for attractions A and B, then the ticket will be valid for attractions A and B only.
+
+This user will be given entry to Gate A & B but not to gate C.
+
+Further to ensure that the system functions even without internet we will validate the ticket with local database in SQL Lite.
+
+We will have three databases AttractionA, AttractionB and AttractionC. Each database will store the ticket no 30 characters, no of persons allowed, no of persons entered, is_synced (yes/no boolean).
+
+There will be two services running in background. one will fetch the data from API and store it in the local database.
+
+Other service will sync the local data to the server. 
+
+at the moment both APIs are not existing so we will mock them or keep them not implemented until we have the apis.
+
+I want to create three files AttractionA.py, AttractionB.py and AttractionC.py. when i run AttractionA.py it should use the database AttractionA and similarly for B and C.
+
+using three files is to choose different database otherwise all code will be same for all.
+
+there should be a full screen display saying "Waiting for QR code..." when threre is no QR code in front of the camera.
+
+When it scans the QR code and if enty is allowed there should be a big green tick mark and green fonts saying Valid Entry.
+
+However if QR code is not allowed then there should be big deny icon and text in red Entry Not Valid. 
+
+There will be reason displayed below "Entry not valid" ex: QR already scanned , Attraction mismatch, or Invalid QR etc.
+
+We will have one QR code for multiple passengers and multiple attractions. this means if the ticket is purchased for 2 people at attraction A then it should allow scanning two times.
+
+We will use USB camera for QR scanning. We will have to continuously poll the camera to see if any QR code is detected. 
+
+Also we need to take care that same QR is not scanned twice in one attempt. i.e. if i put the QR in front of the camera, it should scan and wait for 3 seconds. 
+
+Else it may detect the same QR code in interval of milliseconds when user puts the QR in front of the camera. and if there are two entries allowed then in one attempt both entires will be marked as enterd which is an error.
+
+We want to display the attraction name also on the screen. We also want to display total scanned count of today. display the date.
+
+We want to display on the screen whether the device is online or offline i.e connected to internet or not. 

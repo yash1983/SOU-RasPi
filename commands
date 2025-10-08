@@ -1,0 +1,17 @@
+# Create virtual environment
+python3 -m venv sou_env
+
+# Activate virtual environment
+source sou_env/bin/activate
+
+
+python3 -c "import cv2, pyzbar, PIL, psutil, requests, numpy; print('All packages imported successfully')"
+
+# Test the attraction system
+python3 test_attractions.py
+
+# Test camera
+python3 camera_test_simple.py
+
+# Run attraction scanner
+python3 AttractionA.py
