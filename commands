@@ -23,3 +23,10 @@ TICKET_A_001_2P - Valid for Attraction A (2 persons)
 TICKET_AB_001_3P - Valid for Attraction A & B (3 persons)
 TICKET_ABC_001_4P - Valid for all attractions (4 persons)
 TICKET_B_001_2P - Invalid for Attraction A (should show red X)
+
+
+sqlite3 AttractionA.db
+.headers on
+.mode column
+select * from tickets;
+select * from scan_history;
