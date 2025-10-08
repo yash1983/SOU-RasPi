@@ -29,23 +29,28 @@ class DisplayManager:
     
     def create_waiting_screen(self, today_scans=0):
         """Create waiting screen with QR code message"""
-        # Create black background
-        screen = np.zeros((720, 1280, 3), dtype=np.uint8)
+        # Create black background - use full screen resolution
+        screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
         
         # Add attraction name
-        cv2.putText(screen, f"SOU {self.attraction_name}", (640, 100), 
+        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
-        cv2.putText(screen, f"SOU {self.attraction_name}", (640, 100), 
+        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 150, 255), 2)
         
-        # Add main message
-        cv2.putText(screen, "Waiting for QR code...", (640, 300), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 255, 255), 4)
-        cv2.putText(screen, "Waiting for QR code...", (640, 300), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 255), 3)
+        # Add main message - properly centered
+        message = "Waiting for QR code..."
+        font_scale = 3
+        thickness = 4
+        (text_width, text_height), _ = cv2.getTextSize(message, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+        x = (1920 - text_width) // 2
+        cv2.putText(screen, message, (x, 400), 
+                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
+        cv2.putText(screen, message, (x, 400), 
+                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 255, 255), 3)
         
         # Add QR code icon (simplified)
-        self.draw_qr_icon(screen, 640, 450)
+        self.draw_qr_icon(screen, 960, 600)
         
         # Add status information
         self.add_status_info(screen, today_scans)
@@ -54,26 +59,35 @@ class DisplayManager:
     
     def create_success_screen(self, ticket_info, today_scans):
         """Create success screen with green tick"""
-        screen = np.zeros((720, 1280, 3), dtype=np.uint8)
+        screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
         
         # Add attraction name
-        cv2.putText(screen, f"SOU {self.attraction_name}", (640, 100), 
+        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
-        cv2.putText(screen, f"SOU {self.attraction_name}", (640, 100), 
+        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 150, 255), 2)
         
         # Draw green tick mark
-        self.draw_tick_mark(screen, 640, 300, color=(0, 255, 0))
+        self.draw_tick_mark(screen, 960, 400, color=(0, 255, 0))
         
-        # Add success message
-        cv2.putText(screen, "Valid Entry", (640, 450), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 4)
+        # Add success message - properly centered
+        message = "Valid Entry"
+        font_scale = 3
+        thickness = 4
+        (text_width, text_height), _ = cv2.getTextSize(message, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+        x = (1920 - text_width) // 2
+        cv2.putText(screen, message, (x, 550), 
+                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 255, 0), thickness)
         
-        # Add ticket info
+        # Add ticket info - properly centered
         if ticket_info:
             info_text = f"Entries: {ticket_info['persons_entered']}/{ticket_info['persons_allowed']}"
-            cv2.putText(screen, info_text, (640, 520), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2)
+            font_scale = 1.5
+            thickness = 2
+            (text_width, text_height), _ = cv2.getTextSize(info_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            x = (1920 - text_width) // 2
+            cv2.putText(screen, info_text, (x, 620), 
+                       cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
         
         # Add status information
         self.add_status_info(screen, today_scans)
@@ -82,24 +96,57 @@ class DisplayManager:
     
     def create_error_screen(self, reason, today_scans):
         """Create error screen with red X"""
-        screen = np.zeros((720, 1280, 3), dtype=np.uint8)
+        screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
         
         # Add attraction name
-        cv2.putText(screen, f"SOU {self.attraction_name}", (640, 100), 
+        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
-        cv2.putText(screen, f"SOU {self.attraction_name}", (640, 100), 
+        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 150, 255), 2)
         
         # Draw red X mark
-        self.draw_x_mark(screen, 640, 300, color=(0, 0, 255))
+        self.draw_x_mark(screen, 960, 400, color=(0, 0, 255))
         
-        # Add error message
-        cv2.putText(screen, "Entry Not Valid", (640, 450), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 4)
+        # Add error message - properly centered
+        message = "Entry Not Valid"
+        font_scale = 3
+        thickness = 4
+        (text_width, text_height), _ = cv2.getTextSize(message, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+        x = (1920 - text_width) // 2
+        cv2.putText(screen, message, (x, 550), 
+                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 255), thickness)
         
-        # Add reason
-        cv2.putText(screen, reason, (640, 520), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2)
+        # Add reason - use smaller font and better positioning
+        # Split long text into multiple lines if needed
+        if len(reason) > 30:
+            # Split text into two lines
+            words = reason.split()
+            mid = len(words) // 2
+            line1 = ' '.join(words[:mid])
+            line2 = ' '.join(words[mid:])
+            
+            # Get text size for centering
+            font_scale = 1.2
+            thickness = 2
+            (text_width1, text_height1), _ = cv2.getTextSize(line1, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            (text_width2, text_height2), _ = cv2.getTextSize(line2, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            
+            # Center the text
+            x1 = (1920 - text_width1) // 2
+            x2 = (1920 - text_width2) // 2
+            
+            cv2.putText(screen, line1, (x1, 600), 
+                       cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
+            cv2.putText(screen, line2, (x2, 640), 
+                       cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
+        else:
+            # Single line text
+            font_scale = 1.2
+            thickness = 2
+            (text_width, text_height), _ = cv2.getTextSize(reason, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+            x = (1920 - text_width) // 2
+            cv2.putText(screen, reason, (x, 620), 
+                       cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
         
         # Add status information
         self.add_status_info(screen, today_scans)
@@ -141,25 +188,25 @@ class DisplayManager:
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
         
-        cv2.putText(screen, f"Date: {date_str}", (50, 650), 
+        cv2.putText(screen, f"Date: {date_str}", (50, 950), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(screen, f"Time: {time_str}", (50, 680), 
+        cv2.putText(screen, f"Time: {time_str}", (50, 980), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         # Today's scan count
-        cv2.putText(screen, f"Today's Scans: {today_scans}", (50, 710), 
+        cv2.putText(screen, f"Today's Scans: {today_scans}", (50, 1010), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         # Online/Offline status
         status_color = (0, 255, 0) if self.is_online else (0, 0, 255)
         status_text = "ONLINE" if self.is_online else "OFFLINE"
         
-        cv2.putText(screen, f"Status: {status_text}", (1000, 650), 
+        cv2.putText(screen, f"Status: {status_text}", (1500, 950), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, status_color, 2)
         
         # Connection indicator dot
         dot_color = (0, 255, 0) if self.is_online else (0, 0, 255)
-        cv2.circle(screen, (970, 650), 8, dot_color, -1)
+        cv2.circle(screen, (1470, 950), 8, dot_color, -1)
     
     def update_connection_status(self):
         """Update internet connection status"""
@@ -182,6 +229,8 @@ class DisplayManager:
         """Setup fullscreen window"""
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        # Set window size to full screen
+        cv2.resizeWindow(self.window_name, 1920, 1080)
     
     def cleanup(self):
         """Cleanup display resources"""
