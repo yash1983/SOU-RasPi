@@ -194,12 +194,17 @@ class TicketDatabase:
         ''')
         today_entries = cursor.fetchone()[0] or 0
         
+        # Unsynced records count
+        cursor.execute('SELECT COUNT(*) FROM tickets WHERE is_synced = 0')
+        unsynced_count = cursor.fetchone()[0]
+        
         conn.close()
         
         return {
             'total_tickets': total_tickets,
             'today_scans': today_scans,
             'today_entries': today_entries,
+            'unsynced_count': unsynced_count,
             'attraction_name': self.attraction_name
         }
     

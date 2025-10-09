@@ -27,7 +27,7 @@ class DisplayManager:
         except:
             return False
     
-    def create_waiting_screen(self, today_scans=0):
+    def create_waiting_screen(self, today_scans=0, db_stats=None):
         """Create waiting screen with QR code message"""
         # Create black background - use full screen resolution
         screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
@@ -53,11 +53,11 @@ class DisplayManager:
         self.draw_qr_icon(screen, 960, 600)
         
         # Add status information
-        self.add_status_info(screen, today_scans)
+        self.add_status_info(screen, today_scans, db_stats=db_stats)
         
         return screen
     
-    def create_success_screen(self, ticket_info, today_scans):
+    def create_success_screen(self, ticket_info, today_scans, processing_time=None, db_stats=None):
         """Create success screen with green tick"""
         screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
         
@@ -90,11 +90,11 @@ class DisplayManager:
                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
         
         # Add status information
-        self.add_status_info(screen, today_scans)
+        self.add_status_info(screen, today_scans, processing_time, db_stats)
         
         return screen
     
-    def create_error_screen(self, reason, today_scans):
+    def create_error_screen(self, reason, today_scans, processing_time=None, db_stats=None):
         """Create error screen with red X"""
         screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
         
@@ -149,7 +149,7 @@ class DisplayManager:
                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness)
         
         # Add status information
-        self.add_status_info(screen, today_scans)
+        self.add_status_info(screen, today_scans, processing_time, db_stats)
         
         return screen
     
@@ -181,32 +181,48 @@ class DisplayManager:
         cv2.line(screen, (x-size//2, y-size//2), (x+size//2, y+size//2), color, thickness)
         cv2.line(screen, (x+size//2, y-size//2), (x-size//2, y+size//2), color, thickness)
     
-    def add_status_info(self, screen, today_scans):
+    def add_status_info(self, screen, today_scans, processing_time=None, db_stats=None):
         """Add status information to screen"""
         # Current date and time
         now = datetime.now()
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
         
-        cv2.putText(screen, f"Date: {date_str}", (50, 950), 
+        # Left side information
+        cv2.putText(screen, f"Date: {date_str}", (50, 900), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(screen, f"Time: {time_str}", (50, 980), 
+        cv2.putText(screen, f"Time: {time_str}", (50, 930), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
         # Today's scan count
-        cv2.putText(screen, f"Today's Scans: {today_scans}", (50, 1010), 
+        cv2.putText(screen, f"Today's Scans: {today_scans}", (50, 960), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         
-        # Online/Offline status
+        # Processing time (if provided)
+        if processing_time is not None:
+            processing_ms = processing_time * 1000  # Convert to milliseconds
+            cv2.putText(screen, f"Processing: {processing_ms:.1f}ms", (50, 990), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        
+        # Database statistics (if provided)
+        if db_stats is not None:
+            cv2.putText(screen, f"Total Records: {db_stats.get('total_tickets', 0)}", (50, 1020), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            unsynced = db_stats.get('unsynced_count', 0)
+            unsynced_color = (255, 165, 0) if unsynced > 0 else (0, 255, 0)  # Orange if unsynced, green if all synced
+            cv2.putText(screen, f"Unsynced: {unsynced}", (50, 1050), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, unsynced_color, 2)
+        
+        # Right side - Online/Offline status
         status_color = (0, 255, 0) if self.is_online else (0, 0, 255)
         status_text = "ONLINE" if self.is_online else "OFFLINE"
         
-        cv2.putText(screen, f"Status: {status_text}", (1500, 950), 
+        cv2.putText(screen, f"Status: {status_text}", (1500, 900), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, status_color, 2)
         
         # Connection indicator dot
         dot_color = (0, 255, 0) if self.is_online else (0, 0, 255)
-        cv2.circle(screen, (1470, 950), 8, dot_color, -1)
+        cv2.circle(screen, (1470, 900), 8, dot_color, -1)
     
     def update_connection_status(self):
         """Update internet connection status"""
