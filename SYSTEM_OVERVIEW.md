@@ -157,7 +157,9 @@ python3 sync_service.py
 
 ## Ticket Format
 
-Tickets now use the format: `20251009-000001`, `20251009-000002`, etc.
+**Live tickets** use the format: `20251009-000001`, `20251009-000002`, etc.
+
+**Dummy/test tickets** use the format: `20251009-000001-dummy`, `20251009-000002-dummy`, etc.
 
 ## Key Changes
 

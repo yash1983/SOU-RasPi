@@ -494,27 +494,27 @@ class TicketDatabase:
         """Add sample tickets for testing with new format"""
         sample_tickets = [
             {
-                "ticket_no": "20251009-000001",
+                "ticket_no": "20251009-000001-dummy",
                 "booking_date": "2025-10-08",
-                "reference_no": "20251009-000001",
+                "reference_no": "20251009-000001-dummy",
                 "attractions": {"A": {"pax": 2, "used": 0}, "B": {"pax": 0, "used": 0}, "C": {"pax": 0, "used": 0}}
             },
             {
-                "ticket_no": "20251009-000002", 
+                "ticket_no": "20251009-000002-dummy", 
                 "booking_date": "2025-10-08",
-                "reference_no": "20251009-000002",
+                "reference_no": "20251009-000002-dummy",
                 "attractions": {"A": {"pax": 1, "used": 0}, "B": {"pax": 0, "used": 0}, "C": {"pax": 0, "used": 0}}
             },
             {
-                "ticket_no": "20251009-000003",
+                "ticket_no": "20251009-000003-dummy",
                 "booking_date": "2025-10-08", 
-                "reference_no": "20251009-000003",
+                "reference_no": "20251009-000003-dummy",
                 "attractions": {"A": {"pax": 3, "used": 0}, "B": {"pax": 3, "used": 0}, "C": {"pax": 0, "used": 0}}
             },
             {
-                "ticket_no": "20251009-000004",
+                "ticket_no": "20251009-000004-dummy",
                 "booking_date": "2025-10-08",
-                "reference_no": "20251009-000004", 
+                "reference_no": "20251009-000004-dummy", 
                 "attractions": {"A": {"pax": 4, "used": 0}, "B": {"pax": 4, "used": 0}, "C": {"pax": 4, "used": 0}}
             }
         ]
@@ -538,14 +538,14 @@ def test_ticket_database():
     db_a.add_sample_tickets()
     
     # Test validation
-    result = db_a.validate_ticket("TICKET_A_001_2P")
+    result = db_a.validate_ticket("20251009-000001-dummy", "A")
     print(f"Validation result: {result}")
     
     # Test stats
     stats = db_a.get_stats()
     print(f"Stats: {stats}")
     
-    print("✅ Ticket database test completed!")
+    print("Ticket database test completed!")
 
 if __name__ == "__main__":
     test_ticket_database()

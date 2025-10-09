@@ -81,10 +81,10 @@ Where:
 
 The system automatically creates sample tickets for testing:
 
-- `TICKET_A_001_2P` - 2 persons for Attraction A
-- `TICKET_A_002_1P` - 1 person for Attraction A
-- `TICKET_AB_001_3P` - 3 persons for Attraction A & B
-- `TICKET_ABC_001_4P` - 4 persons for all attractions
+- `20251009-000001-dummy` - 2 persons for Attraction A
+- `20251009-000002-dummy` - 1 person for Attraction A
+- `20251009-000003-dummy` - 3 persons for Attraction A & B
+- `20251009-000004-dummy` - 4 persons for all attractions
 
 ## Controls
 

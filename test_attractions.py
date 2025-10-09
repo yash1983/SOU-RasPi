@@ -10,47 +10,47 @@ import time
 
 def test_ticket_validation():
     """Test ticket validation for all attractions"""
-    print("🧪 Testing Ticket Validation System")
+    print("Testing Ticket Validation System")
     print("=" * 50)
     
     # Test Attraction A
-    print("\n🎯 Testing Attraction A...")
+    print("\nTesting Attraction A...")
     db_a = TicketDatabase("AttractionA")
     db_a.add_sample_tickets()
     
     # Test valid ticket
-    result = db_a.validate_ticket("TICKET_A_001_2P")
-    print(f"TICKET_A_001_2P: {result}")
+    result = db_a.validate_ticket("20251009-000001-dummy", "A")
+    print(f"20251009-000001-dummy: {result}")
     
     # Test invalid ticket
-    result = db_a.validate_ticket("TICKET_B_001_2P")
-    print(f"TICKET_B_001_2P: {result}")
+    result = db_a.validate_ticket("20251009-000002-dummy", "A")
+    print(f"20251009-000002-dummy: {result}")
     
     # Test Attraction B
-    print("\n🎯 Testing Attraction B...")
+    print("\nTesting Attraction B...")
     db_b = TicketDatabase("AttractionB")
     db_b.add_sample_tickets()
     
     # Test valid ticket
-    result = db_b.validate_ticket("TICKET_AB_001_3P")
-    print(f"TICKET_AB_001_3P: {result}")
+    result = db_b.validate_ticket("20251009-000003-dummy", "B")
+    print(f"20251009-000003-dummy: {result}")
     
     # Test Attraction C
-    print("\n🎯 Testing Attraction C...")
+    print("\nTesting Attraction C...")
     db_c = TicketDatabase("AttractionC")
     db_c.add_sample_tickets()
     
     # Test valid ticket
-    result = db_c.validate_ticket("TICKET_ABC_001_4P")
-    print(f"TICKET_ABC_001_4P: {result}")
+    result = db_c.validate_ticket("20251009-000004-dummy", "C")
+    print(f"20251009-000004-dummy: {result}")
     
     # Test invalid ticket
-    result = db_c.validate_ticket("TICKET_A_001_2P")
-    print(f"TICKET_A_001_2P: {result}")
+    result = db_c.validate_ticket("20251009-000001-dummy", "C")
+    print(f"20251009-000001-dummy: {result}")
 
 def test_display_screens():
     """Test display screens without camera"""
-    print("\n🖥️ Testing Display Screens...")
+    print("\nTesting Display Screens...")
     print("=" * 50)
     
     dm = DisplayManager("AttractionA")
@@ -75,7 +75,7 @@ def test_display_screens():
 
 def test_database_stats():
     """Test database statistics"""
-    print("\n📊 Testing Database Statistics...")
+    print("\nTesting Database Statistics...")
     print("=" * 50)
     
     db = TicketDatabase("TestAttraction")
@@ -86,12 +86,12 @@ def test_database_stats():
     
     # Test multiple scans
     for i in range(3):
-        result = db.validate_ticket("TICKET_A_001_2P")
+        result = db.validate_ticket("20251009-000001-dummy", "A")
         print(f"Scan {i+1}: {result}")
 
 def main():
     """Main test function"""
-    print("🚀 SOU Raspberry Pi - Attraction System Test")
+    print("SOU Raspberry Pi - Attraction System Test")
     print("=" * 60)
     
     try:
