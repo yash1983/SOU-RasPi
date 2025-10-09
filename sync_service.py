@@ -54,6 +54,7 @@ class SyncService:
             for attempt in range(retry_attempts):
                 try:
                     self.logger.info(f"Syncing ticket {ticket_no} to server (attempt {attempt + 1}/{retry_attempts})")
+                    self.logger.info(f"Sending data: {ticket_data}")
                     
                     response = requests.post(
                         url, 
@@ -61,6 +62,8 @@ class SyncService:
                         headers=headers, 
                         timeout=timeout
                     )
+                    
+                    self.logger.info(f"Server response: {response.status_code} - {response.text[:200]}")
                     response.raise_for_status()
                     
                     self.logger.info(f"Successfully synced ticket {ticket_no} to server")
@@ -88,6 +91,11 @@ class SyncService:
             unsynced_tickets = db.get_unsynced_tickets()
             
             for ticket_no in unsynced_tickets:
+                # Skip dummy tickets if configured to do so
+                if config.get('services.skip_dummy_sync', True) and ticket_no.endswith('-dummy'):
+                    self.logger.debug(f"Skipping dummy ticket: {ticket_no}")
+                    continue
+                    
                 if ticket_no not in all_unsynced:
                     # Get ticket data from the first database that has it
                     ticket_data = db.get_ticket_for_sync(ticket_no)

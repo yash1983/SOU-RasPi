@@ -11,7 +11,8 @@
     "fetch_interval": 300,
     "sync_interval": 1,
     "fetch_enabled": true,
-    "sync_enabled": true
+    "sync_enabled": true,
+    "skip_dummy_sync": true
   },
   "database": {
     "backup_enabled": true,
