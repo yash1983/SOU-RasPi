@@ -400,9 +400,9 @@ class TicketDatabase:
         if result:
             booking_date, reference_no, a_pax, a_used, b_pax, b_used, c_pax, c_used = result
             return {
-                "BookingDate": booking_date,
-                "ReferenceNo": reference_no,
-                "Attractions": {
+                "bookingDate": booking_date,
+                "referenceNo": reference_no,
+                "attractions": {
                     "A": {"pax": a_pax, "used": a_used},
                     "B": {"pax": b_pax, "used": b_used},
                     "C": {"pax": c_pax, "used": c_used}

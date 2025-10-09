@@ -25,7 +25,7 @@ class SyncService:
         for attraction in self.attractions:
             self.databases[attraction] = TicketDatabase(attraction)
         
-        self.logger.info("✅ Sync Service initialized")
+        self.logger.info("Sync Service initialized")
     
     def setup_logging(self):
         """Setup logging for the service"""
@@ -53,7 +53,7 @@ class SyncService:
             
             for attempt in range(retry_attempts):
                 try:
-                    self.logger.info(f"🔄 Syncing ticket {ticket_no} to server (attempt {attempt + 1}/{retry_attempts})")
+                    self.logger.info(f"Syncing ticket {ticket_no} to server (attempt {attempt + 1}/{retry_attempts})")
                     
                     response = requests.post(
                         url, 
@@ -63,20 +63,20 @@ class SyncService:
                     )
                     response.raise_for_status()
                     
-                    self.logger.info(f"✅ Successfully synced ticket {ticket_no} to server")
+                    self.logger.info(f"Successfully synced ticket {ticket_no} to server")
                     return True
                     
                 except requests.exceptions.RequestException as e:
-                    self.logger.warning(f"⚠️  Attempt {attempt + 1} failed for ticket {ticket_no}: {e}")
+                    self.logger.warning(f"Attempt {attempt + 1} failed for ticket {ticket_no}: {e}")
                     if attempt < retry_attempts - 1:
-                        self.logger.info(f"⏰ Waiting {retry_delay} seconds before retry")
+                        self.logger.info(f"Waiting {retry_delay} seconds before retry")
                         time.sleep(retry_delay)
                     else:
-                        self.logger.error(f"❌ All attempts failed for ticket {ticket_no}")
+                        self.logger.error(f"All attempts failed for ticket {ticket_no}")
                         return False
             
         except Exception as e:
-            self.logger.error(f"❌ Unexpected error syncing ticket {ticket_no}: {e}")
+            self.logger.error(f"Unexpected error syncing ticket {ticket_no}: {e}")
             return False
     
     def get_all_unsynced_tickets(self):
@@ -101,10 +101,10 @@ class SyncService:
         unsynced_tickets = self.get_all_unsynced_tickets()
         
         if not unsynced_tickets:
-            self.logger.info("✅ No unsynced tickets found")
+            self.logger.info("No unsynced tickets found")
             return 0
         
-        self.logger.info(f"🔄 Found {len(unsynced_tickets)} unsynced tickets")
+        self.logger.info(f"Found {len(unsynced_tickets)} unsynced tickets")
         
         synced_count = 0
         failed_count = 0
@@ -121,21 +121,21 @@ class SyncService:
             else:
                 failed_count += 1
         
-        self.logger.info(f"📊 Sync completed: {synced_count} synced, {failed_count} failed")
+        self.logger.info(f"Sync completed: {synced_count} synced, {failed_count} failed")
         return synced_count
     
     def run_sync_cycle(self):
         """Run a single sync cycle"""
-        self.logger.info("🔄 Starting sync cycle")
+        self.logger.info("Starting sync cycle")
         
         synced_count = self.sync_unsynced_tickets()
         
-        self.logger.info("✅ Sync cycle completed")
+        self.logger.info("Sync cycle completed")
         return synced_count
     
     def run(self):
         """Main service loop"""
-        self.logger.info("🚀 Sync Service started")
+        self.logger.info("Sync Service started")
         
         sync_interval = config.get('services.sync_interval', 1)  # 1 second default
         
@@ -147,21 +147,21 @@ class SyncService:
                     # If no tickets were synced, wait the full interval
                     # If tickets were synced, wait 1 second as specified
                     if synced_count == 0:
-                        self.logger.info(f"⏰ No tickets to sync, waiting {sync_interval} seconds")
+                        self.logger.info(f"No tickets to sync, waiting {sync_interval} seconds")
                         time.sleep(sync_interval)
                     else:
-                        self.logger.info("⏰ Tickets synced, waiting 1 second")
+                        self.logger.info("Tickets synced, waiting 1 second")
                         time.sleep(1)
                 else:
-                    self.logger.info("⏸️  Sync service is disabled in configuration")
+                    self.logger.info("Sync service is disabled in configuration")
                     time.sleep(sync_interval)
                 
             except KeyboardInterrupt:
-                self.logger.info("🛑 Sync Service stopped by user")
+                self.logger.info("Sync Service stopped by user")
                 break
             except Exception as e:
-                self.logger.error(f"❌ Unexpected error in sync service: {e}")
-                self.logger.info("⏰ Waiting 5 seconds before retry")
+                self.logger.error(f"Unexpected error in sync service: {e}")
+                self.logger.info("Waiting 5 seconds before retry")
                 time.sleep(5)
 
 def main():

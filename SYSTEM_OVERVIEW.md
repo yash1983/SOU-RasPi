@@ -57,12 +57,12 @@ The database now supports separate columns for each attraction:
 ### Server Data Format (GET)
 ```json
 [{
-  "BookingDate": "2025-10-08",
-  "ReferenceNo": "20251009-000001",
-  "Attractions": {
-    "A": {"pax": 5, "used": 0},
-    "B": {"pax": 5, "used": 0},
-    "C": {"pax": 5, "used": 0}
+  "bookingDate": "2025-10-09",
+  "referenceNo": "20251009-000001",
+  "attractions": {
+    "A": {"pax": 1, "used": 0},
+    "B": {"pax": 2, "used": 0},
+    "C": {"pax": 3, "used": 0}
   }
 }]
 ```
@@ -70,12 +70,12 @@ The database now supports separate columns for each attraction:
 ### Sync Data Format (POST)
 ```json
 {
-  "BookingDate": "2025-10-08",
-  "ReferenceNo": "20251009-000001",
-  "Attractions": {
-    "A": {"pax": 5, "used": 2},
-    "B": {"pax": 5, "used": 1},
-    "C": {"pax": 5, "used": 0}
+  "bookingDate": "2025-10-09",
+  "referenceNo": "20251009-000001",
+  "attractions": {
+    "A": {"pax": 1, "used": 1},
+    "B": {"pax": 2, "used": 0},
+    "C": {"pax": 3, "used": 0}
   }
 }
 ```

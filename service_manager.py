@@ -23,7 +23,7 @@ class ServiceManager:
         self.processes = {}
         self.running = False
         
-        self.logger.info("✅ Service Manager initialized")
+        self.logger.info("Service Manager initialized")
     
     def setup_logging(self):
         """Setup logging for the service manager"""
@@ -40,24 +40,24 @@ class ServiceManager:
     def start_fetch_service(self):
         """Start the fetch service in a separate process"""
         if config.get('services.fetch_enabled', True):
-            self.logger.info("🚀 Starting Fetch Service...")
+            self.logger.info("Starting Fetch Service...")
             process = multiprocessing.Process(target=self._run_fetch_service)
             process.start()
             self.processes['fetch'] = process
-            self.logger.info("✅ Fetch Service started")
+            self.logger.info("Fetch Service started")
         else:
-            self.logger.info("⏸️  Fetch Service is disabled")
+            self.logger.info("Fetch Service is disabled")
     
     def start_sync_service(self):
         """Start the sync service in a separate process"""
         if config.get('services.sync_enabled', True):
-            self.logger.info("🚀 Starting Sync Service...")
+            self.logger.info("Starting Sync Service...")
             process = multiprocessing.Process(target=self._run_sync_service)
             process.start()
             self.processes['sync'] = process
-            self.logger.info("✅ Sync Service started")
+            self.logger.info("Sync Service started")
         else:
-            self.logger.info("⏸️  Sync Service is disabled")
+            self.logger.info("Sync Service is disabled")
     
     def _run_fetch_service(self):
         """Run fetch service in separate process"""
@@ -65,7 +65,7 @@ class ServiceManager:
             service = FetchService()
             service.run()
         except Exception as e:
-            self.logger.error(f"❌ Fetch Service error: {e}")
+            self.logger.error(f"Fetch Service error: {e}")
     
     def _run_sync_service(self):
         """Run sync service in separate process"""
@@ -73,39 +73,39 @@ class ServiceManager:
             service = SyncService()
             service.run()
         except Exception as e:
-            self.logger.error(f"❌ Sync Service error: {e}")
+            self.logger.error(f"Sync Service error: {e}")
     
     def start_all_services(self):
         """Start all enabled services"""
-        self.logger.info("🚀 Starting all services...")
+        self.logger.info("Starting all services...")
         self.running = True
         
         # Start services
         self.start_fetch_service()
         self.start_sync_service()
         
-        self.logger.info("✅ All services started")
+        self.logger.info("All services started")
     
     def stop_all_services(self):
         """Stop all running services"""
-        self.logger.info("🛑 Stopping all services...")
+        self.logger.info("Stopping all services...")
         self.running = False
         
         for name, process in self.processes.items():
             if process.is_alive():
-                self.logger.info(f"🛑 Stopping {name} service...")
+                self.logger.info(f"Stopping {name} service...")
                 process.terminate()
                 process.join(timeout=10)
                 
                 if process.is_alive():
-                    self.logger.warning(f"⚠️  Force killing {name} service...")
+                    self.logger.warning(f"Force killing {name} service...")
                     process.kill()
                     process.join()
                 
-                self.logger.info(f"✅ {name} service stopped")
+                self.logger.info(f"{name} service stopped")
         
         self.processes.clear()
-        self.logger.info("✅ All services stopped")
+        self.logger.info("All services stopped")
     
     def check_services_health(self):
         """Check if all services are running properly"""
@@ -115,21 +115,21 @@ class ServiceManager:
         for name, process in self.processes.items():
             if process.is_alive():
                 healthy_services += 1
-                self.logger.debug(f"✅ {name} service is healthy")
+                self.logger.debug(f"{name} service is healthy")
             else:
-                self.logger.warning(f"⚠️  {name} service is not running")
+                self.logger.warning(f"{name} service is not running")
         
         if healthy_services == total_services and total_services > 0:
-            self.logger.info(f"✅ All {total_services} services are healthy")
+            self.logger.info(f"All {total_services} services are healthy")
             return True
         else:
-            self.logger.warning(f"⚠️  Only {healthy_services}/{total_services} services are healthy")
+            self.logger.warning(f"Only {healthy_services}/{total_services} services are healthy")
             return False
     
     def restart_service(self, service_name):
         """Restart a specific service"""
         if service_name in self.processes:
-            self.logger.info(f"🔄 Restarting {service_name} service...")
+            self.logger.info(f"Restarting {service_name} service...")
             
             # Stop the service
             process = self.processes[service_name]
@@ -146,13 +146,13 @@ class ServiceManager:
             elif service_name == 'sync':
                 self.start_sync_service()
             
-            self.logger.info(f"✅ {service_name} service restarted")
+            self.logger.info(f"{service_name} service restarted")
         else:
-            self.logger.error(f"❌ Service {service_name} not found")
+            self.logger.error(f"Service {service_name} not found")
     
     def run(self):
         """Main service manager loop"""
-        self.logger.info("🚀 Service Manager started")
+        self.logger.info("Service Manager started")
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -167,25 +167,25 @@ class ServiceManager:
                 time.sleep(30)  # Check every 30 seconds
                 
                 if not self.check_services_health():
-                    self.logger.warning("⚠️  Some services are unhealthy, attempting restart...")
+                    self.logger.warning("Some services are unhealthy, attempting restart...")
                     # Restart unhealthy services
                     for name, process in self.processes.items():
                         if not process.is_alive():
                             self.restart_service(name)
         
         except KeyboardInterrupt:
-            self.logger.info("🛑 Service Manager interrupted by user")
+            self.logger.info("Service Manager interrupted by user")
         
         except Exception as e:
-            self.logger.error(f"❌ Unexpected error in Service Manager: {e}")
+            self.logger.error(f"Unexpected error in Service Manager: {e}")
         
         finally:
             self.stop_all_services()
-            self.logger.info("✅ Service Manager stopped")
+            self.logger.info("Service Manager stopped")
     
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
-        self.logger.info(f"🛑 Received signal {signum}, shutting down...")
+        self.logger.info(f"Received signal {signum}, shutting down...")
         self.running = False
 
 def main():

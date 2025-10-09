@@ -10,16 +10,16 @@ from service_manager import ServiceManager
 
 def main():
     """Start all background services"""
-    print("🚀 Starting SOU Background Services...")
+    print("Starting SOU Background Services...")
     print("=" * 50)
     
     try:
         manager = ServiceManager()
         manager.run()
     except KeyboardInterrupt:
-        print("\n🛑 Services stopped by user")
+        print("\nServices stopped by user")
     except Exception as e:
-        print(f"❌ Error starting services: {e}")
+        print(f"Error starting services: {e}")
         return 1
     
     return 0
