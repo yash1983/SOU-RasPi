@@ -85,30 +85,40 @@ class AttractionBScanner:
         """Process QR code scan"""
         print(f"🔍 QR Code detected: {qr_data}")
         
+        # Start processing time measurement
+        import time
+        start_time = time.time()
+        
         # Validate ticket
         validation_result = self.validate_ticket(qr_data)
         
-        # Get today's scan count
+        # Calculate processing time
+        processing_time = time.time() - start_time
+        
+        # Get today's scan count and database statistics
         today_scans = self.db.get_today_scans()
+        db_stats = self.db.get_stats()
         
         # Update connection status
         self.display.update_connection_status()
         
         if validation_result['valid']:
-            print(f"✅ {validation_result['reason']}")
+            processing_ms = processing_time * 1000
+            print(f"✅ {validation_result['reason']} (Processed in {processing_ms:.1f}ms)")
             # Show success screen
             success_screen = self.display.create_success_screen(
-                validation_result['ticket_info'], today_scans
+                validation_result['ticket_info'], today_scans, processing_time, db_stats
             )
             self.display.show_screen(success_screen)
             
             # Show success screen for 3 seconds
             cv2.waitKey(3000)
         else:
-            print(f"❌ {validation_result['reason']}")
+            processing_ms = processing_time * 1000
+            print(f"❌ {validation_result['reason']} (Processed in {processing_ms:.1f}ms)")
             # Show error screen
             error_screen = self.display.create_error_screen(
-                validation_result['reason'], today_scans
+                validation_result['reason'], today_scans, processing_time, db_stats
             )
             self.display.show_screen(error_screen)
             
@@ -159,7 +169,8 @@ class AttractionBScanner:
                 
                 # Show waiting screen
                 today_scans = self.db.get_today_scans()
-                waiting_screen = self.display.create_waiting_screen(today_scans)
+                db_stats = self.db.get_stats()
+                waiting_screen = self.display.create_waiting_screen(today_scans, db_stats=db_stats)
                 self.display.show_screen(waiting_screen)
                 
                 # Handle key presses
