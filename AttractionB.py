@@ -53,16 +53,8 @@ class AttractionBScanner:
     
     def validate_ticket(self, qr_data):
         """Validate ticket and return result"""
-        # Check if QR code is for this attraction
-        if not qr_data.startswith("TICKET_B") and not qr_data.startswith("TICKET_AB") and not qr_data.startswith("TICKET_ABC"):
-            return {
-                'valid': False,
-                'reason': 'Attraction mismatch - Ticket not valid for Attraction B',
-                'ticket_info': None
-            }
-        
-        # Validate with database using optimized method
-        result = self.db.validate_and_log_ticket(qr_data)
+        # Validate with database using optimized method (includes attraction checking)
+        result = self.db.validate_and_log_ticket(qr_data, "B")
         
         if result['valid']:
             return {

@@ -34,6 +34,7 @@ class TicketDatabase:
                 persons_allowed INTEGER NOT NULL,
                 persons_entered INTEGER DEFAULT 0,
                 is_synced BOOLEAN DEFAULT 0,
+                attractions TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_scan TIMESTAMP
             )
@@ -57,21 +58,22 @@ class TicketDatabase:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_is_synced ON tickets(is_synced)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_last_scan ON tickets(last_scan)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_history_ticket ON scan_history(ticket_no)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_attractions ON tickets(attractions)')
         
         conn.commit()
         conn.close()
         print(f"✅ Database initialized for {self.attraction_name}: {self.db_path}")
     
-    def add_ticket(self, ticket_no, persons_allowed):
+    def add_ticket(self, ticket_no, persons_allowed, attractions):
         """Add a new ticket to the database"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         try:
             cursor.execute('''
-                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced)
-                VALUES (?, ?, 0, 0)
-            ''', (ticket_no, persons_allowed))
+                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced, attractions)
+                VALUES (?, ?, 0, 0, ?)
+            ''', (ticket_no, persons_allowed, attractions))
             
             conn.commit()
             conn.close()
@@ -92,8 +94,8 @@ class TicketDatabase:
         
         try:
             cursor.executemany('''
-                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced)
-                VALUES (?, ?, 0, 0)
+                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced, attractions)
+                VALUES (?, ?, 0, 0, ?)
             ''', tickets_data)
             
             conn.commit()
@@ -167,7 +169,7 @@ class TicketDatabase:
             'persons_entered': persons_entered + 1
         }
     
-    def validate_and_log_ticket(self, ticket_no):
+    def validate_and_log_ticket(self, ticket_no, attraction_name):
         """Validate ticket and log result in a single optimized transaction"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -175,9 +177,9 @@ class TicketDatabase:
         # Optimize for performance
         cursor.execute('PRAGMA synchronous=NORMAL')
         
-        # Check if ticket exists
+        # Check if ticket exists and is valid for this attraction
         cursor.execute('''
-            SELECT persons_allowed, persons_entered, is_synced
+            SELECT persons_allowed, persons_entered, is_synced, attractions
             FROM tickets
             WHERE ticket_no = ?
         ''', (ticket_no,))
@@ -199,7 +201,24 @@ class TicketDatabase:
                 'persons_entered': 0
             }
         
-        persons_allowed, persons_entered, is_synced = result
+        persons_allowed, persons_entered, is_synced, attractions = result
+        
+        # Check if ticket is valid for this attraction
+        if attraction_name not in attractions:
+            # Log failed scan
+            reason = f'Attraction mismatch - Ticket not valid for {attraction_name}'
+            cursor.execute('''
+                INSERT INTO scan_history (ticket_no, result, reason)
+                VALUES (?, 'FAILED', ?)
+            ''', (ticket_no, reason))
+            conn.commit()
+            conn.close()
+            return {
+                'valid': False,
+                'reason': reason,
+                'persons_allowed': persons_allowed,
+                'persons_entered': persons_entered
+            }
         
         # Check if all persons have already entered
         if persons_entered >= persons_allowed:
@@ -347,14 +366,14 @@ class TicketDatabase:
     def add_sample_tickets(self):
         """Add sample tickets for testing"""
         sample_tickets = [
-            ("TICKET_A_001_2P", 2),  # 2 persons for Attraction A
-            ("TICKET_A_002_1P", 1),  # 1 person for Attraction A
-            ("TICKET_AB_001_3P", 3), # 3 persons for Attraction A & B
-            ("TICKET_ABC_001_4P", 4), # 4 persons for all attractions
+            ("TICKET_A_001_2P", 2, "A"),  # 2 persons for Attraction A
+            ("TICKET_A_002_1P", 1, "A"),  # 1 person for Attraction A
+            ("TICKET_AB_001_3P", 3, "A,B"), # 3 persons for Attraction A & B
+            ("TICKET_ABC_001_4P", 4, "A,B,C"), # 4 persons for all attractions
         ]
         
-        for ticket_no, persons in sample_tickets:
-            self.add_ticket(ticket_no, persons)
+        for ticket_no, persons, attractions in sample_tickets:
+            self.add_ticket(ticket_no, persons, attractions)
         
         print(f"✅ Added {len(sample_tickets)} sample tickets to {self.attraction_name}")
 

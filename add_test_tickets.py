@@ -10,12 +10,15 @@ import time
 from ticket_database import TicketDatabase
 
 def generate_random_ticket():
-    """Generate a random ticket number"""
-    # Generate random ticket types
-    ticket_types = ["TICKET_C", "TICKET_ABC"]
+    """Generate a random ticket number and attractions"""
+    # Generate random ticket types with their corresponding attractions
+    ticket_types = [
+        ("TICKET_C", "C"),
+        ("TICKET_ABC", "A,B,C")
+    ]
     
     # Random ticket type
-    ticket_type = random.choice(ticket_types)
+    ticket_type, attractions = random.choice(ticket_types)
     
     # Random 3-digit number
     ticket_num = f"{random.randint(1, 999):03d}"
@@ -26,7 +29,8 @@ def generate_random_ticket():
     # Random suffix
     suffix = ''.join(random.choices(string.ascii_uppercase, k=2))
     
-    return f"{ticket_type}_{ticket_num}_{person_count}P_{suffix}"
+    ticket_no = f"{ticket_type}_{ticket_num}_{person_count}P_{suffix}"
+    return ticket_no, attractions
 
 def add_test_tickets(attraction_name, count=100000):
     """Add test tickets to specified attraction database"""
@@ -57,9 +61,9 @@ def add_test_tickets(attraction_name, count=100000):
             # Generate batch of tickets
             batch_tickets = []
             for i in range(batch_size):
-                ticket_no = generate_random_ticket()
+                ticket_no, attractions = generate_random_ticket()
                 persons_allowed = random.randint(1, 6)
-                batch_tickets.append((ticket_no, persons_allowed))
+                batch_tickets.append((ticket_no, persons_allowed, attractions))
             
             # Add batch to database using bulk insert
             success = db.add_tickets_bulk(batch_tickets)
@@ -81,9 +85,9 @@ def add_test_tickets(attraction_name, count=100000):
             # Generate remaining tickets
             remaining_tickets = []
             for i in range(remaining):
-                ticket_no = generate_random_ticket()
+                ticket_no, attractions = generate_random_ticket()
                 persons_allowed = random.randint(1, 6)
-                remaining_tickets.append((ticket_no, persons_allowed))
+                remaining_tickets.append((ticket_no, persons_allowed, attractions))
             
             # Add remaining tickets using bulk insert
             success = db.add_tickets_bulk(remaining_tickets)
