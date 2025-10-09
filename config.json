@@ -1,0 +1,27 @@
+{
+  "api": {
+    "base_url": "http://demotms.adittest.com/api/",
+    "fetch_endpoint": "bookings/summary",
+    "sync_endpoint": "bookings/update-used",
+    "timeout": 30,
+    "retry_attempts": 3,
+    "retry_delay": 5
+  },
+  "services": {
+    "fetch_interval": 300,
+    "sync_interval": 1,
+    "fetch_enabled": true,
+    "sync_enabled": true
+  },
+  "database": {
+    "backup_enabled": true,
+    "backup_interval": 3600,
+    "max_backups": 7
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "sou_system.log",
+    "max_size": 10485760,
+    "backup_count": 5
+  }
+}

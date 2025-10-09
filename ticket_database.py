@@ -27,14 +27,19 @@ class TicketDatabase:
         cursor.execute('PRAGMA temp_store=MEMORY')  # Store temp tables in memory
         cursor.execute('PRAGMA mmap_size=268435456')  # 256MB memory mapping
         
-        # Create tickets table
+        # Create tickets table with new structure
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS tickets (
                 ticket_no TEXT PRIMARY KEY,
-                persons_allowed INTEGER NOT NULL,
-                persons_entered INTEGER DEFAULT 0,
+                booking_date TEXT NOT NULL,
+                reference_no TEXT NOT NULL,
+                A_pax INTEGER DEFAULT 0,
+                A_used INTEGER DEFAULT 0,
+                B_pax INTEGER DEFAULT 0,
+                B_used INTEGER DEFAULT 0,
+                C_pax INTEGER DEFAULT 0,
+                C_used INTEGER DEFAULT 0,
                 is_synced BOOLEAN DEFAULT 0,
-                attractions TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_scan TIMESTAMP
             )
@@ -58,28 +63,38 @@ class TicketDatabase:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_is_synced ON tickets(is_synced)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_last_scan ON tickets(last_scan)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_history_ticket ON scan_history(ticket_no)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_attractions ON tickets(attractions)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_booking_date ON tickets(booking_date)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_reference_no ON tickets(reference_no)')
         
         conn.commit()
         conn.close()
-        print(f"✅ Database initialized for {self.attraction_name}: {self.db_path}")
+        print(f"Database initialized for {self.attraction_name}: {self.db_path}")
     
-    def add_ticket(self, ticket_no, persons_allowed, attractions):
-        """Add a new ticket to the database"""
+    def add_ticket(self, ticket_no, booking_date, reference_no, attractions_data):
+        """Add a new ticket to the database with new structure"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         try:
+            # Extract attraction data
+            a_pax = attractions_data.get('A', {}).get('pax', 0)
+            a_used = attractions_data.get('A', {}).get('used', 0)
+            b_pax = attractions_data.get('B', {}).get('pax', 0)
+            b_used = attractions_data.get('B', {}).get('used', 0)
+            c_pax = attractions_data.get('C', {}).get('pax', 0)
+            c_used = attractions_data.get('C', {}).get('used', 0)
+            
             cursor.execute('''
-                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced, attractions)
-                VALUES (?, ?, 0, 0, ?)
-            ''', (ticket_no, persons_allowed, attractions))
+                INSERT OR REPLACE INTO tickets 
+                (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            ''', (ticket_no, booking_date, reference_no, a_pax, a_used, b_pax, b_used, c_pax, c_used))
             
             conn.commit()
             conn.close()
             return True
         except Exception as e:
-            print(f"❌ Error adding ticket: {e}")
+            print(f"Error adding ticket: {e}")
             conn.close()
             return False
     
@@ -94,26 +109,36 @@ class TicketDatabase:
         
         try:
             cursor.executemany('''
-                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced, attractions)
-                VALUES (?, ?, 0, 0, ?)
+                INSERT OR REPLACE INTO tickets 
+                (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             ''', tickets_data)
             
             conn.commit()
             conn.close()
             return True
         except Exception as e:
-            print(f"❌ Error adding tickets in bulk: {e}")
+            print(f"Error adding tickets in bulk: {e}")
             conn.close()
             return False
     
-    def validate_ticket(self, ticket_no):
-        """Validate ticket and return validation result"""
+    def validate_ticket(self, ticket_no, attraction_name):
+        """Validate ticket and return validation result for specific attraction"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Optimize for performance - use single query with conditional update
-        cursor.execute('''
-            SELECT persons_allowed, persons_entered, is_synced
+        # Normalize attraction name (handle both "A" and "AttractionA" formats)
+        if attraction_name.startswith("Attraction"):
+            attraction_short = attraction_name[-1]  # Get last character (A, B, or C)
+        else:
+            attraction_short = attraction_name.upper()
+        
+        # Get ticket data for the specific attraction
+        attraction_col = f"{attraction_short}_pax"
+        used_col = f"{attraction_short}_used"
+        
+        cursor.execute(f'''
+            SELECT {attraction_col}, {used_col}, is_synced
             FROM tickets
             WHERE ticket_no = ?
         ''', (ticket_no,))
@@ -131,6 +156,16 @@ class TicketDatabase:
         
         persons_allowed, persons_entered, is_synced = result
         
+        # Check if ticket is valid for this attraction
+        if persons_allowed == 0:
+            conn.close()
+            return {
+                'valid': False,
+                'reason': f'Attraction mismatch - Ticket not valid for {attraction_short}',
+                'persons_allowed': 0,
+                'persons_entered': 0
+            }
+        
         # Check if all persons have already entered
         if persons_entered >= persons_allowed:
             conn.close()
@@ -142,11 +177,12 @@ class TicketDatabase:
             }
         
         # Ticket is valid, increment persons_entered with optimized query
-        cursor.execute('''
+        cursor.execute(f'''
             UPDATE tickets
-            SET persons_entered = persons_entered + 1,
+            SET {used_col} = {used_col} + 1,
+                is_synced = 0,
                 last_scan = CURRENT_TIMESTAMP
-            WHERE ticket_no = ? AND persons_entered < persons_allowed
+            WHERE ticket_no = ? AND {used_col} < {attraction_col}
         ''', (ticket_no,))
         
         # Check if update was successful (prevents race conditions)
@@ -177,9 +213,18 @@ class TicketDatabase:
         # Optimize for performance
         cursor.execute('PRAGMA synchronous=NORMAL')
         
-        # Check if ticket exists and is valid for this attraction
-        cursor.execute('''
-            SELECT persons_allowed, persons_entered, is_synced, attractions
+        # Normalize attraction name (handle both "A" and "AttractionA" formats)
+        if attraction_name.startswith("Attraction"):
+            attraction_short = attraction_name[-1]  # Get last character (A, B, or C)
+        else:
+            attraction_short = attraction_name.upper()
+        
+        # Get ticket data for the specific attraction
+        attraction_col = f"{attraction_short}_pax"
+        used_col = f"{attraction_short}_used"
+        
+        cursor.execute(f'''
+            SELECT {attraction_col}, {used_col}, is_synced
             FROM tickets
             WHERE ticket_no = ?
         ''', (ticket_no,))
@@ -201,12 +246,12 @@ class TicketDatabase:
                 'persons_entered': 0
             }
         
-        persons_allowed, persons_entered, is_synced, attractions = result
+        persons_allowed, persons_entered, is_synced = result
         
         # Check if ticket is valid for this attraction
-        if attraction_name not in attractions:
+        if persons_allowed == 0:
             # Log failed scan
-            reason = f'Attraction mismatch - Ticket not valid for {attraction_name}'
+            reason = f'Attraction mismatch - Ticket not valid for {attraction_short}'
             cursor.execute('''
                 INSERT INTO scan_history (ticket_no, result, reason)
                 VALUES (?, 'FAILED', ?)
@@ -216,8 +261,8 @@ class TicketDatabase:
             return {
                 'valid': False,
                 'reason': reason,
-                'persons_allowed': persons_allowed,
-                'persons_entered': persons_entered
+                'persons_allowed': 0,
+                'persons_entered': 0
             }
         
         # Check if all persons have already entered
@@ -237,11 +282,12 @@ class TicketDatabase:
             }
         
         # Ticket is valid, increment persons_entered and log success
-        cursor.execute('''
+        cursor.execute(f'''
             UPDATE tickets
-            SET persons_entered = persons_entered + 1,
+            SET {used_col} = {used_col} + 1,
+                is_synced = 0,
                 last_scan = CURRENT_TIMESTAMP
-            WHERE ticket_no = ? AND persons_entered < persons_allowed
+            WHERE ticket_no = ? AND {used_col} < {attraction_col}
         ''', (ticket_no,))
         
         # Check if update was successful
@@ -312,7 +358,8 @@ class TicketDatabase:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT persons_allowed, persons_entered, is_synced, created_at, last_scan
+            SELECT booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, 
+                   is_synced, created_at, last_scan
             FROM tickets
             WHERE ticket_no = ?
         ''', (ticket_no,))
@@ -322,13 +369,86 @@ class TicketDatabase:
         
         if result:
             return {
-                'persons_allowed': result[0],
-                'persons_entered': result[1],
-                'is_synced': result[2],
-                'created_at': result[3],
-                'last_scan': result[4]
+                'booking_date': result[0],
+                'reference_no': result[1],
+                'A_pax': result[2],
+                'A_used': result[3],
+                'B_pax': result[4],
+                'B_used': result[5],
+                'C_pax': result[6],
+                'C_used': result[7],
+                'is_synced': result[8],
+                'created_at': result[9],
+                'last_scan': result[10]
             }
         return None
+    
+    def get_ticket_for_sync(self, ticket_no):
+        """Get ticket data in format for server sync"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used
+            FROM tickets
+            WHERE ticket_no = ?
+        ''', (ticket_no,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            booking_date, reference_no, a_pax, a_used, b_pax, b_used, c_pax, c_used = result
+            return {
+                "BookingDate": booking_date,
+                "ReferenceNo": reference_no,
+                "Attractions": {
+                    "A": {"pax": a_pax, "used": a_used},
+                    "B": {"pax": b_pax, "used": b_used},
+                    "C": {"pax": c_pax, "used": c_used}
+                }
+            }
+        return None
+    
+    def get_unsynced_tickets(self):
+        """Get all unsynced tickets for background sync service"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT ticket_no FROM tickets WHERE is_synced = 0
+            ORDER BY last_scan ASC, created_at ASC
+        ''')
+        
+        results = cursor.fetchall()
+        conn.close()
+        
+        return [row[0] for row in results]
+    
+    def mark_ticket_synced(self, ticket_no):
+        """Mark a ticket as synced"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE tickets SET is_synced = 1 WHERE ticket_no = ?
+        ''', (ticket_no,))
+        
+        conn.commit()
+        conn.close()
+        
+        return cursor.rowcount > 0
+    
+    def ticket_exists(self, ticket_no):
+        """Check if ticket exists in database"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT 1 FROM tickets WHERE ticket_no = ?', (ticket_no,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result is not None
     
     def get_stats(self):
         """Get database statistics"""
@@ -342,9 +462,16 @@ class TicketDatabase:
         # Today's scans
         today_scans = self.get_today_scans()
         
-        # Total entries today
-        cursor.execute('''
-            SELECT SUM(persons_entered) FROM tickets
+        # Total entries today for this attraction
+        # Normalize attraction name (handle both "A" and "AttractionA" formats)
+        if self.attraction_name.startswith("Attraction"):
+            attraction_short = self.attraction_name[-1]  # Get last character (A, B, or C)
+        else:
+            attraction_short = self.attraction_name.upper()
+        
+        attraction_col = f"{attraction_short}_used"
+        cursor.execute(f'''
+            SELECT SUM({attraction_col}) FROM tickets
             WHERE DATE(last_scan) = DATE('now')
         ''')
         today_entries = cursor.fetchone()[0] or 0
@@ -364,18 +491,43 @@ class TicketDatabase:
         }
     
     def add_sample_tickets(self):
-        """Add sample tickets for testing"""
+        """Add sample tickets for testing with new format"""
         sample_tickets = [
-            ("TICKET_A_001_2P", 2, "A"),  # 2 persons for Attraction A
-            ("TICKET_A_002_1P", 1, "A"),  # 1 person for Attraction A
-            ("TICKET_AB_001_3P", 3, "A,B"), # 3 persons for Attraction A & B
-            ("TICKET_ABC_001_4P", 4, "A,B,C"), # 4 persons for all attractions
+            {
+                "ticket_no": "20251009-000001",
+                "booking_date": "2025-10-08",
+                "reference_no": "20251009-000001",
+                "attractions": {"A": {"pax": 2, "used": 0}, "B": {"pax": 0, "used": 0}, "C": {"pax": 0, "used": 0}}
+            },
+            {
+                "ticket_no": "20251009-000002", 
+                "booking_date": "2025-10-08",
+                "reference_no": "20251009-000002",
+                "attractions": {"A": {"pax": 1, "used": 0}, "B": {"pax": 0, "used": 0}, "C": {"pax": 0, "used": 0}}
+            },
+            {
+                "ticket_no": "20251009-000003",
+                "booking_date": "2025-10-08", 
+                "reference_no": "20251009-000003",
+                "attractions": {"A": {"pax": 3, "used": 0}, "B": {"pax": 3, "used": 0}, "C": {"pax": 0, "used": 0}}
+            },
+            {
+                "ticket_no": "20251009-000004",
+                "booking_date": "2025-10-08",
+                "reference_no": "20251009-000004", 
+                "attractions": {"A": {"pax": 4, "used": 0}, "B": {"pax": 4, "used": 0}, "C": {"pax": 4, "used": 0}}
+            }
         ]
         
-        for ticket_no, persons, attractions in sample_tickets:
-            self.add_ticket(ticket_no, persons, attractions)
+        for ticket_data in sample_tickets:
+            self.add_ticket(
+                ticket_data["ticket_no"],
+                ticket_data["booking_date"], 
+                ticket_data["reference_no"],
+                ticket_data["attractions"]
+            )
         
-        print(f"✅ Added {len(sample_tickets)} sample tickets to {self.attraction_name}")
+        print(f"Added {len(sample_tickets)} sample tickets to {self.attraction_name}")
 
 def test_ticket_database():
     """Test ticket database functionality"""
