@@ -61,20 +61,16 @@ class AttractionCScanner:
                 'ticket_info': None
             }
         
-        # Validate with database
-        result = self.db.validate_ticket(qr_data)
+        # Validate with database using optimized method
+        result = self.db.validate_and_log_ticket(qr_data)
         
         if result['valid']:
-            # Log successful scan
-            self.db.log_scan(qr_data, "SUCCESS", result['reason'])
             return {
                 'valid': True,
                 'reason': result['reason'],
                 'ticket_info': result
             }
         else:
-            # Log failed scan
-            self.db.log_scan(qr_data, "FAILED", result['reason'])
             return {
                 'valid': False,
                 'reason': result['reason'],

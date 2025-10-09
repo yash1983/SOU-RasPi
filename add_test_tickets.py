@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Add Test Tickets for Performance Testing
-Adds 10,000 random tickets to Attraction C database
+Adds 100,000 random tickets to Attraction C database
 """
 
 import random
@@ -28,7 +28,7 @@ def generate_random_ticket():
     
     return f"{ticket_type}_{ticket_num}_{person_count}P_{suffix}"
 
-def add_test_tickets(attraction_name, count=10000):
+def add_test_tickets(attraction_name, count=100000):
     """Add test tickets to specified attraction database"""
     print(f"🎫 Adding {count:,} test tickets to {attraction_name}")
     print("=" * 60)
@@ -40,7 +40,7 @@ def add_test_tickets(attraction_name, count=10000):
     start_time = time.time()
     
     # Generate and add tickets in batches for better performance
-    batch_size = 100
+    batch_size = 1000
     total_batches = count // batch_size
     remaining = count % batch_size
     
@@ -61,10 +61,13 @@ def add_test_tickets(attraction_name, count=10000):
                 persons_allowed = random.randint(1, 6)
                 batch_tickets.append((ticket_no, persons_allowed))
             
-            # Add batch to database
-            for ticket_no, persons_allowed in batch_tickets:
-                db.add_ticket(ticket_no, persons_allowed)
-                tickets_added += 1
+            # Add batch to database using bulk insert
+            success = db.add_tickets_bulk(batch_tickets)
+            if success:
+                tickets_added += len(batch_tickets)
+            else:
+                print(f"❌ Failed to add batch {batch_num + 1}")
+                break
             
             batch_time = time.time() - batch_start
             batch_rate = batch_size / batch_time
@@ -75,11 +78,17 @@ def add_test_tickets(attraction_name, count=10000):
         if remaining > 0:
             batch_start = time.time()
             
+            # Generate remaining tickets
+            remaining_tickets = []
             for i in range(remaining):
                 ticket_no = generate_random_ticket()
                 persons_allowed = random.randint(1, 6)
-                db.add_ticket(ticket_no, persons_allowed)
-                tickets_added += 1
+                remaining_tickets.append((ticket_no, persons_allowed))
+            
+            # Add remaining tickets using bulk insert
+            success = db.add_tickets_bulk(remaining_tickets)
+            if success:
+                tickets_added += len(remaining_tickets)
             
             batch_time = time.time() - batch_start
             batch_rate = remaining / batch_time
@@ -116,7 +125,7 @@ def main():
     print("=" * 60)
     
     attraction = "AttractionC"
-    ticket_count = 10000
+    ticket_count = 100000
     
     print(f"🎯 Target: {attraction}")
     print(f"📊 Tickets to add: {ticket_count:,}")

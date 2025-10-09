@@ -20,6 +20,13 @@ class TicketDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        # Optimize SQLite for better performance on Raspberry Pi
+        cursor.execute('PRAGMA journal_mode=WAL')  # Write-Ahead Logging for better concurrency
+        cursor.execute('PRAGMA synchronous=NORMAL')  # Balance between safety and speed
+        cursor.execute('PRAGMA cache_size=10000')  # Increase cache size for 4GB RAM
+        cursor.execute('PRAGMA temp_store=MEMORY')  # Store temp tables in memory
+        cursor.execute('PRAGMA mmap_size=268435456')  # 256MB memory mapping
+        
         # Create tickets table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS tickets (
@@ -47,6 +54,9 @@ class TicketDatabase:
         # Create indexes for better performance
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_ticket_no ON tickets(ticket_no)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_time ON scan_history(scan_time)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_is_synced ON tickets(is_synced)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_last_scan ON tickets(last_scan)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_scan_history_ticket ON scan_history(ticket_no)')
         
         conn.commit()
         conn.close()
@@ -71,12 +81,35 @@ class TicketDatabase:
             conn.close()
             return False
     
+    def add_tickets_bulk(self, tickets_data):
+        """Add multiple tickets to the database in a single transaction for better performance"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Apply performance optimizations for bulk operations
+        cursor.execute('PRAGMA synchronous=OFF')  # Disable sync for bulk inserts
+        cursor.execute('PRAGMA journal_mode=MEMORY')  # Use memory journal for bulk operations
+        
+        try:
+            cursor.executemany('''
+                INSERT OR REPLACE INTO tickets (ticket_no, persons_allowed, persons_entered, is_synced)
+                VALUES (?, ?, 0, 0)
+            ''', tickets_data)
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error adding tickets in bulk: {e}")
+            conn.close()
+            return False
+    
     def validate_ticket(self, ticket_no):
         """Validate ticket and return validation result"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Check if ticket exists
+        # Optimize for performance - use single query with conditional update
         cursor.execute('''
             SELECT persons_allowed, persons_entered, is_synced
             FROM tickets
@@ -106,12 +139,112 @@ class TicketDatabase:
                 'persons_entered': persons_entered
             }
         
-        # Ticket is valid, increment persons_entered
+        # Ticket is valid, increment persons_entered with optimized query
         cursor.execute('''
             UPDATE tickets
             SET persons_entered = persons_entered + 1,
                 last_scan = CURRENT_TIMESTAMP
+            WHERE ticket_no = ? AND persons_entered < persons_allowed
+        ''', (ticket_no,))
+        
+        # Check if update was successful (prevents race conditions)
+        if cursor.rowcount == 0:
+            conn.close()
+            return {
+                'valid': False,
+                'reason': 'QR already scanned - All entries used',
+                'persons_allowed': persons_allowed,
+                'persons_entered': persons_entered
+            }
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            'valid': True,
+            'reason': 'Valid Entry',
+            'persons_allowed': persons_allowed,
+            'persons_entered': persons_entered + 1
+        }
+    
+    def validate_and_log_ticket(self, ticket_no):
+        """Validate ticket and log result in a single optimized transaction"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Optimize for performance
+        cursor.execute('PRAGMA synchronous=NORMAL')
+        
+        # Check if ticket exists
+        cursor.execute('''
+            SELECT persons_allowed, persons_entered, is_synced
+            FROM tickets
             WHERE ticket_no = ?
+        ''', (ticket_no,))
+        
+        result = cursor.fetchone()
+        
+        if not result:
+            # Log failed scan
+            cursor.execute('''
+                INSERT INTO scan_history (ticket_no, result, reason)
+                VALUES (?, 'FAILED', 'Invalid QR - Ticket not found')
+            ''', (ticket_no,))
+            conn.commit()
+            conn.close()
+            return {
+                'valid': False,
+                'reason': 'Invalid QR - Ticket not found',
+                'persons_allowed': 0,
+                'persons_entered': 0
+            }
+        
+        persons_allowed, persons_entered, is_synced = result
+        
+        # Check if all persons have already entered
+        if persons_entered >= persons_allowed:
+            # Log failed scan
+            cursor.execute('''
+                INSERT INTO scan_history (ticket_no, result, reason)
+                VALUES (?, 'FAILED', 'QR already scanned - All entries used')
+            ''', (ticket_no,))
+            conn.commit()
+            conn.close()
+            return {
+                'valid': False,
+                'reason': 'QR already scanned - All entries used',
+                'persons_allowed': persons_allowed,
+                'persons_entered': persons_entered
+            }
+        
+        # Ticket is valid, increment persons_entered and log success
+        cursor.execute('''
+            UPDATE tickets
+            SET persons_entered = persons_entered + 1,
+                last_scan = CURRENT_TIMESTAMP
+            WHERE ticket_no = ? AND persons_entered < persons_allowed
+        ''', (ticket_no,))
+        
+        # Check if update was successful
+        if cursor.rowcount == 0:
+            # Log failed scan
+            cursor.execute('''
+                INSERT INTO scan_history (ticket_no, result, reason)
+                VALUES (?, 'FAILED', 'QR already scanned - All entries used')
+            ''', (ticket_no,))
+            conn.commit()
+            conn.close()
+            return {
+                'valid': False,
+                'reason': 'QR already scanned - All entries used',
+                'persons_allowed': persons_allowed,
+                'persons_entered': persons_entered
+            }
+        
+        # Log successful scan
+        cursor.execute('''
+            INSERT INTO scan_history (ticket_no, result, reason)
+            VALUES (?, 'SUCCESS', 'Valid Entry')
         ''', (ticket_no,))
         
         conn.commit()
@@ -125,9 +258,12 @@ class TicketDatabase:
         }
     
     def log_scan(self, ticket_no, result, reason):
-        """Log scan attempt to history"""
+        """Log scan attempt to history - optimized for performance"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        
+        # Use optimized settings for logging
+        cursor.execute('PRAGMA synchronous=OFF')  # Faster writes for logging
         
         cursor.execute('''
             INSERT INTO scan_history (ticket_no, result, reason)
