@@ -254,7 +254,7 @@ class DisplayManager:
 
 def test_display_manager():
     """Test display manager functionality"""
-    print("🧪 Testing Display Manager...")
+    print("[TEST] Testing Display Manager...")
     
     dm = DisplayManager("AttractionA")
     dm.setup_fullscreen()
@@ -276,7 +276,7 @@ def test_display_manager():
     cv2.waitKey(2000)
     
     dm.cleanup()
-    print("✅ Display manager test completed!")
+    print("[SUCCESS] Display manager test completed!")
 
 if __name__ == "__main__":
     test_display_manager()

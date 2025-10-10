@@ -28,7 +28,7 @@ class AttractionAScanner:
         self.camera = cv2.VideoCapture(0)
         
         if not self.camera.isOpened():
-            print("❌ Error: Could not open camera")
+            print("[ERROR] Could not open camera")
             return False
         
         # Set camera properties for better performance
@@ -36,7 +36,7 @@ class AttractionAScanner:
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.camera.set(cv2.CAP_PROP_FPS, 30)
         
-        print("✅ Camera initialized successfully")
+        print("[SUCCESS] Camera initialized successfully")
         return True
     
     def scan_qr_code(self, frame):
@@ -47,7 +47,7 @@ class AttractionAScanner:
                 # Return the first QR code found
                 return qr_codes[0].data.decode('utf-8')
         except Exception as e:
-            print(f"❌ Error scanning QR code: {e}")
+            print(f"[ERROR] Error scanning QR code: {e}")
         
         return None
     
@@ -71,7 +71,7 @@ class AttractionAScanner:
     
     def process_scan(self, qr_data):
         """Process QR code scan"""
-        print(f"🔍 QR Code detected: {qr_data}")
+        print(f"[SCAN] QR Code detected: {qr_data}")
         
         # Start processing time measurement
         import time
@@ -92,7 +92,7 @@ class AttractionAScanner:
         
         if validation_result['valid']:
             processing_ms = processing_time * 1000
-            print(f"✅ {validation_result['reason']} (Processed in {processing_ms:.1f}ms)")
+            print(f"[SUCCESS] {validation_result['reason']} (Processed in {processing_ms:.1f}ms)")
             # Show success screen
             success_screen = self.display.create_success_screen(
                 validation_result['ticket_info'], today_scans, processing_time, db_stats
@@ -103,7 +103,7 @@ class AttractionAScanner:
             cv2.waitKey(3000)
         else:
             processing_ms = processing_time * 1000
-            print(f"❌ {validation_result['reason']} (Processed in {processing_ms:.1f}ms)")
+            print(f"[ERROR] {validation_result['reason']} (Processed in {processing_ms:.1f}ms)")
             # Show error screen
             error_screen = self.display.create_error_screen(
                 validation_result['reason'], today_scans, processing_time, db_stats
@@ -119,7 +119,7 @@ class AttractionAScanner:
     def run(self):
         """Main application loop"""
         print("=" * 60)
-        print(f"🎯 SOU Raspberry Pi - {self.attraction_name} QR Scanner")
+        print(f"[TARGET] SOU Raspberry Pi - {self.attraction_name} QR Scanner")
         print("=" * 60)
         
         # Initialize camera
@@ -129,7 +129,7 @@ class AttractionAScanner:
         # Setup fullscreen display
         self.display.setup_fullscreen()
         
-        print("📱 Starting QR scanner...")
+        print("[SCANNER] Starting QR scanner...")
         print("   - Point camera at QR code to scan")
         print("   - Press 'q' to quit")
         print("   - Press 'r' to reset scan cooldown")
@@ -140,7 +140,7 @@ class AttractionAScanner:
                 # Read camera frame
                 ret, frame = self.camera.read()
                 if not ret:
-                    print("❌ Failed to read camera frame")
+                    print("[ERROR] Failed to read camera frame")
                     break
                 
                 # Resize frame for better performance
@@ -164,10 +164,10 @@ class AttractionAScanner:
                 # Handle key presses
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q'):
-                    print("👋 Quitting scanner...")
+                    print("[QUIT] Quitting scanner...")
                     break
                 elif key == ord('r'):
-                    print("🔄 Reset scan cooldown")
+                    print("[RESET] Reset scan cooldown")
                     self.display.last_scan_time = 0
                 elif key == ord('s'):
                     stats = self.db.get_stats()
@@ -177,7 +177,7 @@ class AttractionAScanner:
             print("\n🛑 Interrupted by user")
         
         except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+            print(f"[ERROR] Unexpected error: {e}")
         
         finally:
             self.cleanup()
@@ -189,7 +189,7 @@ class AttractionAScanner:
         if self.camera:
             self.camera.release()
         self.display.cleanup()
-        print("🧹 Cleanup completed")
+        print("[CLEANUP] Cleanup completed")
 
 def main():
     """Main function"""
@@ -197,10 +197,10 @@ def main():
     success = scanner.run()
     
     if success:
-        print("✅ Attraction A scanner completed successfully!")
+        print("[SUCCESS] Attraction A scanner completed successfully!")
         return 0
     else:
-        print("❌ Attraction A scanner failed")
+        print("[ERROR] Attraction A scanner failed")
         return 1
 
 if __name__ == "__main__":
