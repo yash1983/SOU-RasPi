@@ -120,12 +120,26 @@ class SyncService:
         for ticket_no, ticket_data in unsynced_tickets.items():
             if self.sync_ticket_to_server(ticket_no, ticket_data):
                 # Mark as synced in all databases that have this ticket
+                marked_count = 0
                 for attraction in self.attractions:
                     db = self.databases[attraction]
                     if db.ticket_exists(ticket_no):
-                        db.mark_ticket_synced(ticket_no)
+                        try:
+                            result = db.mark_ticket_synced(ticket_no)
+                            if result:
+                                marked_count += 1
+                                self.logger.info(f"Marked ticket {ticket_no} as synced in {attraction}")
+                            else:
+                                self.logger.warning(f"Failed to mark ticket {ticket_no} as synced in {attraction}")
+                        except Exception as e:
+                            self.logger.error(f"Error marking ticket {ticket_no} as synced in {attraction}: {e}")
                 
-                synced_count += 1
+                if marked_count > 0:
+                    self.logger.info(f"Successfully marked ticket {ticket_no} as synced in {marked_count} database(s)")
+                    synced_count += 1
+                else:
+                    self.logger.error(f"Failed to mark ticket {ticket_no} as synced in any database")
+                    failed_count += 1
             else:
                 failed_count += 1
         

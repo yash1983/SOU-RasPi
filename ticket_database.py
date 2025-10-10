@@ -92,11 +92,56 @@ class TicketDatabase:
             c_pax = attractions_data.get('C', {}).get('pax', 0)
             c_used = attractions_data.get('C', {}).get('used', 0)
             
-            cursor.execute('''
-                INSERT OR REPLACE INTO tickets 
-                (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-            ''', (ticket_no, booking_date, reference_no, a_pax, a_used, b_pax, b_used, c_pax, c_used))
+            # Check if ticket already exists to preserve sync status
+            cursor.execute('SELECT is_synced FROM tickets WHERE ticket_no = ?', (ticket_no,))
+            existing_ticket = cursor.fetchone()
+            
+            if existing_ticket:
+                # Ticket exists - smart update logic for used counts
+                existing_sync_status = existing_ticket[0]
+                
+                # Get current used counts to compare with server data
+                cursor.execute('''
+                    SELECT A_used, B_used, C_used FROM tickets WHERE ticket_no = ?
+                ''', (ticket_no,))
+                current_used = cursor.fetchone()
+                
+                if current_used:
+                    current_a_used, current_b_used, current_c_used = current_used
+                    
+                    # Smart update: only update used counts if server data is higher
+                    # This prevents server from overwriting local scan data with stale data
+                    new_a_used = max(current_a_used, a_used)
+                    new_b_used = max(current_b_used, b_used)
+                    new_c_used = max(current_c_used, c_used)
+                    
+                    # Update with smart used counts
+                    cursor.execute('''
+                        UPDATE tickets SET 
+                            booking_date = ?, reference_no = ?, A_pax = ?, A_used = ?, 
+                            B_pax = ?, B_used = ?, C_pax = ?, C_used = ?
+                        WHERE ticket_no = ?
+                    ''', (booking_date, reference_no, a_pax, new_a_used, 
+                          b_pax, new_b_used, c_pax, new_c_used, ticket_no))
+                    
+                    # Log if we updated any used counts
+                    if new_a_used > current_a_used or new_b_used > current_b_used or new_c_used > current_c_used:
+                        print(f"Updated used counts for {ticket_no}: A={current_a_used}→{new_a_used}, B={current_b_used}→{new_b_used}, C={current_c_used}→{new_c_used}")
+                else:
+                    # Fallback: update everything if we can't get current used counts
+                    cursor.execute('''
+                        UPDATE tickets SET 
+                            booking_date = ?, reference_no = ?, A_pax = ?, A_used = ?, 
+                            B_pax = ?, B_used = ?, C_pax = ?, C_used = ?
+                        WHERE ticket_no = ?
+                    ''', (booking_date, reference_no, a_pax, a_used, b_pax, b_used, c_pax, c_used, ticket_no))
+            else:
+                # New ticket - set is_synced to 0
+                cursor.execute('''
+                    INSERT INTO tickets 
+                    (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                ''', (ticket_no, booking_date, reference_no, a_pax, a_used, b_pax, b_used, c_pax, c_used))
             
             conn.commit()
             conn.close()
@@ -116,11 +161,58 @@ class TicketDatabase:
         cursor.execute('PRAGMA journal_mode=MEMORY')  # Use memory journal for bulk operations
         
         try:
-            cursor.executemany('''
-                INSERT OR REPLACE INTO tickets 
-                (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-            ''', tickets_data)
+            for ticket_data in tickets_data:
+                ticket_no = ticket_data[0]
+                
+                # Check if ticket already exists to preserve sync status
+                cursor.execute('SELECT is_synced FROM tickets WHERE ticket_no = ?', (ticket_no,))
+                existing_ticket = cursor.fetchone()
+                
+                if existing_ticket:
+                    # Ticket exists - smart update logic for used counts
+                    # Get current used counts to compare with server data
+                    cursor.execute('''
+                        SELECT A_used, B_used, C_used FROM tickets WHERE ticket_no = ?
+                    ''', (ticket_no,))
+                    current_used = cursor.fetchone()
+                    
+                    if current_used:
+                        current_a_used, current_b_used, current_c_used = current_used
+                        server_a_used, server_b_used, server_c_used = ticket_data[4], ticket_data[6], ticket_data[8]
+                        
+                        # Smart update: only update used counts if server data is higher
+                        new_a_used = max(current_a_used, server_a_used)
+                        new_b_used = max(current_b_used, server_b_used)
+                        new_c_used = max(current_c_used, server_c_used)
+                        
+                        # Update with smart used counts
+                        cursor.execute('''
+                            UPDATE tickets SET 
+                                booking_date = ?, reference_no = ?, A_pax = ?, A_used = ?, 
+                                B_pax = ?, B_used = ?, C_pax = ?, C_used = ?
+                            WHERE ticket_no = ?
+                        ''', (ticket_data[1], ticket_data[2], ticket_data[3], new_a_used, 
+                              ticket_data[5], new_b_used, ticket_data[7], new_c_used, ticket_no))
+                        
+                        # Log if we updated any used counts
+                        if new_a_used > current_a_used or new_b_used > current_b_used or new_c_used > current_c_used:
+                            print(f"Bulk updated used counts for {ticket_no}: A={current_a_used}→{new_a_used}, B={current_b_used}→{new_b_used}, C={current_c_used}→{new_c_used}")
+                    else:
+                        # Fallback: update everything if we can't get current used counts
+                        cursor.execute('''
+                            UPDATE tickets SET 
+                                booking_date = ?, reference_no = ?, A_pax = ?, A_used = ?, 
+                                B_pax = ?, B_used = ?, C_pax = ?, C_used = ?
+                            WHERE ticket_no = ?
+                        ''', (ticket_data[1], ticket_data[2], ticket_data[3], ticket_data[4], 
+                              ticket_data[5], ticket_data[6], ticket_data[7], ticket_data[8], ticket_no))
+                else:
+                    # New ticket - set is_synced to 0
+                    cursor.execute('''
+                        INSERT INTO tickets 
+                        (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                    ''', ticket_data)
             
             conn.commit()
             conn.close()
@@ -447,17 +539,38 @@ class TicketDatabase:
     
     def mark_ticket_synced(self, ticket_no):
         """Mark a ticket as synced"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            UPDATE tickets SET is_synced = 1 WHERE ticket_no = ?
-        ''', (ticket_no,))
-        
-        conn.commit()
-        conn.close()
-        
-        return cursor.rowcount > 0
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Check if ticket exists first
+            cursor.execute('SELECT 1 FROM tickets WHERE ticket_no = ?', (ticket_no,))
+            if not cursor.fetchone():
+                conn.close()
+                print(f"Warning: Ticket {ticket_no} not found in {self.attraction_name} database")
+                return False
+            
+            # Update the is_synced flag
+            cursor.execute('''
+                UPDATE tickets SET is_synced = 1 WHERE ticket_no = ?
+            ''', (ticket_no,))
+            
+            rows_affected = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            if rows_affected > 0:
+                print(f"Successfully marked ticket {ticket_no} as synced in {self.attraction_name}")
+                return True
+            else:
+                print(f"Warning: No rows updated for ticket {ticket_no} in {self.attraction_name}")
+                return False
+                
+        except Exception as e:
+            print(f"Error marking ticket {ticket_no} as synced in {self.attraction_name}: {e}")
+            if 'conn' in locals():
+                conn.close()
+            return False
     
     def ticket_exists(self, ticket_no):
         """Check if ticket exists in database"""
@@ -469,6 +582,34 @@ class TicketDatabase:
         conn.close()
         
         return result is not None
+    
+    def get_sync_debug_info(self, ticket_no):
+        """Get debug information about a ticket's sync status"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT ticket_no, is_synced, created_at, last_scan
+            FROM tickets
+            WHERE ticket_no = ?
+        ''', (ticket_no,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                'ticket_no': result[0],
+                'is_synced': result[1],
+                'created_at': result[2],
+                'last_scan': result[3],
+                'exists': True
+            }
+        else:
+            return {
+                'ticket_no': ticket_no,
+                'exists': False
+            }
     
     def get_stats(self):
         """Get database statistics"""
@@ -554,6 +695,17 @@ class TicketDatabase:
             )
         
         print(f"Added {len(sample_tickets)} sample tickets to {self.attraction_name}")
+    
+    def add_sample_tickets_if_enabled(self):
+        """Add sample tickets only if enabled in configuration"""
+        try:
+            from config import config
+            if config.get('services.add_dummy_tickets', False):
+                self.add_sample_tickets()
+            else:
+                print(f"Dummy tickets disabled for {self.attraction_name}")
+        except ImportError:
+            print(f"Config not available, skipping dummy tickets for {self.attraction_name}")
 
 def test_ticket_database():
     """Test ticket database functionality"""
@@ -561,11 +713,14 @@ def test_ticket_database():
     
     # Test Attraction A
     db_a = TicketDatabase("AttractionA")
-    db_a.add_sample_tickets()
+    db_a.add_sample_tickets_if_enabled()
     
-    # Test validation
-    result = db_a.validate_ticket("20251009-000001-dummy", "A")
-    print(f"Validation result: {result}")
+    # Test validation (only if dummy tickets were added)
+    if db_a.ticket_exists("20251009-000001-dummy"):
+        result = db_a.validate_ticket("20251009-000001-dummy", "A")
+        print(f"Validation result: {result}")
+    else:
+        print("No dummy tickets found for validation test")
     
     # Test stats
     stats = db_a.get_stats()

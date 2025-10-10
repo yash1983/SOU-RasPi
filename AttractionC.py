@@ -20,8 +20,8 @@ class AttractionCScanner:
         self.camera = None
         self.running = True
         
-        # Add sample tickets for testing
-        self.db.add_sample_tickets()
+        # Add sample tickets for testing (if enabled in config)
+        self.db.add_sample_tickets_if_enabled()
         
     def initialize_camera(self):
         """Initialize USB camera"""
