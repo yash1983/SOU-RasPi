@@ -14,7 +14,7 @@ class DisplayManager:
     def __init__(self, attraction_name):
         """Initialize display manager"""
         self.attraction_name = attraction_name
-        self.window_name = f"SOU {attraction_name} - QR Scanner"
+        self.window_name = f"SOU Gate: {attraction_name} - QR Scanner"
         self.is_online = self.check_internet_connection()
         self.last_scan_time = 0
         self.scan_cooldown = 3.0  # 3 seconds cooldown
@@ -33,9 +33,9 @@ class DisplayManager:
         screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
         
         # Add attraction name
-        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
+        cv2.putText(screen, f"SOU Gate: {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 3)
-        cv2.putText(screen, f"SOU {self.attraction_name}", (960, 150), 
+        cv2.putText(screen, f"SOU Gate: {self.attraction_name}", (960, 150), 
                    cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 150, 255), 2)
         
         # Add main message - properly centered

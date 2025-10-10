@@ -12,7 +12,15 @@ class TicketDatabase:
     def __init__(self, attraction_name):
         """Initialize database for specific attraction"""
         self.attraction_name = attraction_name
-        self.db_path = f"{attraction_name}.db"
+        # Map display names to database file names
+        if attraction_name == "SOU Entry":
+            self.db_path = "AttractionA.db"
+        elif attraction_name == "Jungle Safari":
+            self.db_path = "AttractionB.db"
+        elif attraction_name == "Cactus Garden":
+            self.db_path = "AttractionC.db"
+        else:
+            self.db_path = f"{attraction_name}.db"
         self.init_database()
     
     def init_database(self):
@@ -130,6 +138,12 @@ class TicketDatabase:
         # Normalize attraction name (handle both "A" and "AttractionA" formats)
         if attraction_name.startswith("Attraction"):
             attraction_short = attraction_name[-1]  # Get last character (A, B, or C)
+        elif attraction_name == "SOU Entry":
+            attraction_short = "A"
+        elif attraction_name == "Jungle Safari":
+            attraction_short = "B"
+        elif attraction_name == "Cactus Garden":
+            attraction_short = "C"
         else:
             attraction_short = attraction_name.upper()
         
@@ -216,6 +230,12 @@ class TicketDatabase:
         # Normalize attraction name (handle both "A" and "AttractionA" formats)
         if attraction_name.startswith("Attraction"):
             attraction_short = attraction_name[-1]  # Get last character (A, B, or C)
+        elif attraction_name == "SOU Entry":
+            attraction_short = "A"
+        elif attraction_name == "Jungle Safari":
+            attraction_short = "B"
+        elif attraction_name == "Cactus Garden":
+            attraction_short = "C"
         else:
             attraction_short = attraction_name.upper()
         
@@ -466,6 +486,12 @@ class TicketDatabase:
         # Normalize attraction name (handle both "A" and "AttractionA" formats)
         if self.attraction_name.startswith("Attraction"):
             attraction_short = self.attraction_name[-1]  # Get last character (A, B, or C)
+        elif self.attraction_name == "SOU Entry":
+            attraction_short = "A"
+        elif self.attraction_name == "Jungle Safari":
+            attraction_short = "B"
+        elif self.attraction_name == "Cactus Garden":
+            attraction_short = "C"
         else:
             attraction_short = self.attraction_name.upper()
         

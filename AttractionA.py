@@ -14,7 +14,7 @@ from display_manager import DisplayManager
 class AttractionAScanner:
     def __init__(self):
         """Initialize Attraction A scanner"""
-        self.attraction_name = "AttractionA"
+        self.attraction_name = "SOU Entry"
         self.db = TicketDatabase(self.attraction_name)
         self.display = DisplayManager(self.attraction_name)
         self.camera = None

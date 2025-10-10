@@ -73,6 +73,8 @@ class FetchService:
         processed_count = 0
         created_count = 0
         updated_count = 0
+        skipped_count = 0
+        today = datetime.now().strftime("%Y-%m-%d")
         
         for ticket_data in tickets_data:
             try:
@@ -83,6 +85,12 @@ class FetchService:
                 
                 if not ticket_no or not booking_date or not attractions_data:
                     self.logger.warning(f"⚠️  Skipping invalid ticket data: {ticket_data}")
+                    continue
+                
+                # Only process tickets for today's date
+                if booking_date != today:
+                    self.logger.debug(f"Skipping ticket {ticket_no} - not for today (booking_date: {booking_date}, today: {today})")
+                    skipped_count += 1
                     continue
                 
                 # Process for each attraction database
@@ -110,7 +118,7 @@ class FetchService:
             except Exception as e:
                 self.logger.error(f"Error processing ticket {ticket_data}: {e}")
         
-        self.logger.info(f"Processed {processed_count} tickets: {created_count} created, {updated_count} updated")
+        self.logger.info(f"Processed {processed_count} tickets: {created_count} created, {updated_count} updated, {skipped_count} skipped (not today's date)")
     
     def run_fetch_cycle(self):
         """Run a single fetch cycle"""
