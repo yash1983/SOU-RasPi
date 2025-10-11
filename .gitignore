@@ -1,6 +1,9 @@
 AttractionA.db
 AttractionB.db
 AttractionC.db
+*.db-shm*
+*.db-wal*
+*.db_backup*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
