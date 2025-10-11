@@ -41,6 +41,7 @@ class Config:
                 "sync_interval": 1,     # 1 second
                 "fetch_enabled": True,
                 "sync_enabled": True,
+                "cleanup_enabled": True,  # Enable daily cleanup service
                 "skip_dummy_sync": True,  # Skip syncing dummy tickets
                 "add_dummy_tickets": False  # Don't add dummy tickets by default
             },

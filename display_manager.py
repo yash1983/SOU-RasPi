@@ -223,6 +223,11 @@ class DisplayManager:
         # Connection indicator dot
         dot_color = (0, 255, 0) if self.is_online else (0, 0, 255)
         cv2.circle(screen, (1470, 900), 8, dot_color, -1)
+        
+        # Bottom right - Quit instruction
+        quit_text = "Press 'q' to quit"
+        cv2.putText(screen, quit_text, (1600, 1050), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
     
     def update_connection_status(self):
         """Update internet connection status"""

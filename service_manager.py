@@ -12,6 +12,7 @@ import logging
 from config import config
 from fetch_service import FetchService
 from sync_service import SyncService
+from cleanup_service import CleanupService
 
 class ServiceManager:
     """Manages background services for SOU system"""
@@ -59,6 +60,17 @@ class ServiceManager:
         else:
             self.logger.info("Sync Service is disabled")
     
+    def start_cleanup_service(self):
+        """Start the cleanup service in a separate process"""
+        if config.get('services.cleanup_enabled', True):
+            self.logger.info("Starting Cleanup Service...")
+            process = multiprocessing.Process(target=self._run_cleanup_service)
+            process.start()
+            self.processes['cleanup'] = process
+            self.logger.info("Cleanup Service started")
+        else:
+            self.logger.info("Cleanup Service is disabled")
+    
     def _run_fetch_service(self):
         """Run fetch service in separate process"""
         try:
@@ -75,6 +87,14 @@ class ServiceManager:
         except Exception as e:
             self.logger.error(f"Sync Service error: {e}")
     
+    def _run_cleanup_service(self):
+        """Run cleanup service in separate process"""
+        try:
+            service = CleanupService()
+            service.run()
+        except Exception as e:
+            self.logger.error(f"Cleanup Service error: {e}")
+    
     def start_all_services(self):
         """Start all enabled services"""
         self.logger.info("Starting all services...")
@@ -83,6 +103,7 @@ class ServiceManager:
         # Start services
         self.start_fetch_service()
         self.start_sync_service()
+        self.start_cleanup_service()
         
         self.logger.info("All services started")
     
@@ -145,6 +166,8 @@ class ServiceManager:
                 self.start_fetch_service()
             elif service_name == 'sync':
                 self.start_sync_service()
+            elif service_name == 'cleanup':
+                self.start_cleanup_service()
             
             self.logger.info(f"{service_name} service restarted")
         else:

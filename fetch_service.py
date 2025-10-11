@@ -229,13 +229,9 @@ class FetchService:
                 consecutive_failures += 1
                 self.logger.error(f"Unexpected error in fetch service (failure #{consecutive_failures}): {e}")
                 
-                if consecutive_failures >= max_consecutive_failures:
-                    self.logger.error(f"Too many consecutive failures ({consecutive_failures}). Increasing wait time.")
-                    wait_time = min(300, 60 * consecutive_failures)  # Max 5 minutes
-                else:
-                    wait_time = 60
-                
-                self.logger.info(f"Waiting {wait_time} seconds before retry")
+                # For demo: use constant wait time instead of exponential backoff
+                wait_time = 10  # Constant 10 seconds for demo
+                self.logger.info(f"Waiting {wait_time} seconds before retry (constant wait for demo)")
                 time.sleep(wait_time)
 
 def main():

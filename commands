@@ -37,3 +37,23 @@ top or htop
 free -h
 # temperature
 vcgencmd measure_temp
+
+# DEMO SETTINGS (current):
+# - timeout: 10 seconds (quick failure detection)
+# - retry_delay: 2 seconds (constant, no exponential backoff)
+# - fetch_interval: 10 seconds (frequent checks)
+# - sync_interval: 5 seconds (very frequent sync)
+
+# PRODUCTION SETTINGS (recommended):
+# - fetch_interval: 300 seconds (5 minutes)
+# - timeout: 30-60 seconds
+# - retry_attempts: 5
+# - sync_interval: 10-30 seconds
+# - retry_delay: 5-10 seconds
+
+# HOURLY CLEANUP SERVICE:
+# - Runs automatically every hour (at the top of each hour)
+# - Cleans up tickets and scans from previous days
+# - Creates backups before cleanup
+# - Manual cleanup: python3 manual_cleanup.py
+# - Service status: Check service_manager.py logs
