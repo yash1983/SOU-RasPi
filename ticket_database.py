@@ -7,6 +7,7 @@ Manages ticket validation for multiple attractions
 import sqlite3
 import os
 from datetime import datetime
+from ticket_parser import TicketParser
 
 class TicketDatabase:
     def __init__(self, attraction_name):
@@ -21,6 +22,16 @@ class TicketDatabase:
             self.db_path = "AttractionC.db"
         else:
             self.db_path = f"{attraction_name}.db"
+        
+        # Load gate mapping from config
+        gate_mapping = None
+        try:
+            from config import config
+            gate_mapping = config.get('gate_mapping', None)
+        except ImportError:
+            pass
+        
+        self.ticket_parser = TicketParser(gate_mapping=gate_mapping)  # Initialize ticket parser with config
         self.init_database()
     
     def init_database(self):
@@ -222,8 +233,30 @@ class TicketDatabase:
             conn.close()
             return False
     
-    def validate_ticket(self, ticket_no, attraction_name):
-        """Validate ticket and return validation result for specific attraction"""
+    def validate_ticket(self, ticket_no_or_qr, attraction_name):
+        """
+        Validate ticket and return validation result for specific attraction
+        Supports both old ticket_no format and new QR code format
+        
+        Args:
+            ticket_no_or_qr: Either old ticket_no (e.g., "20251009-000001-dummy") 
+                            or new QR code (e.g., "20251015-000003-010702080309-8ML/Lf6faRhs")
+            attraction_name: Attraction name ("A", "B", "C", "SOU Entry", etc.)
+        
+        Returns:
+            dict with validation result
+        """
+        # Check if it looks like a new QR code format (has 4+ parts with hyphen)
+        parts = ticket_no_or_qr.split('-')
+        if len(parts) >= 4:
+            # Looks like new QR code format - use validate_and_log_ticket
+            # But this method doesn't log, so we'll call it but note it logs
+            result = self.validate_and_log_ticket(ticket_no_or_qr, attraction_name)
+            return result
+        
+        # Old format - use reference_no directly
+        ticket_no = ticket_no_or_qr
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -311,13 +344,46 @@ class TicketDatabase:
             'persons_entered': persons_entered + 1
         }
     
-    def validate_and_log_ticket(self, ticket_no, attraction_name):
-        """Validate ticket and log result in a single optimized transaction"""
+    def validate_and_log_ticket(self, qr_code, attraction_name):
+        """
+        Validate ticket and log result in a single optimized transaction
+        
+        Args:
+            qr_code: Full QR code string (e.g., "20251015-000003-010702080309-8ML/Lf6faRhs")
+            attraction_name: Attraction name ("A", "B", "C", "SOU Entry", etc.)
+        
+        Returns:
+            dict with validation result
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         # Optimize for performance
         cursor.execute('PRAGMA synchronous=NORMAL')
+        
+        # Parse QR code and validate HMAC
+        parsed_ticket = self.ticket_parser.parse_qr_code(qr_code)
+        
+        if not parsed_ticket['valid']:
+            # Log failed scan
+            error_reason = parsed_ticket.get('error', 'Invalid QR code format')
+            cursor.execute('''
+                INSERT INTO scan_history (ticket_no, result, reason)
+                VALUES (?, 'FAILED', ?)
+            ''', (qr_code[:50], error_reason))  # Store first 50 chars if too long
+            conn.commit()
+            conn.close()
+            return {
+                'valid': False,
+                'reason': f'Invalid QR - {error_reason}',
+                'persons_allowed': 0,
+                'persons_entered': 0
+            }
+        
+        # Extract ticket information from parsed QR code
+        reference_no = parsed_ticket['reference_no']  # Used as ticket_no in database
+        booking_date = parsed_ticket['date']  # YYYYMMDD format
+        gate_info = parsed_ticket['gate_info']
         
         # Normalize attraction name (handle both "A" and "AttractionA" formats)
         if attraction_name.startswith("Attraction"):
@@ -331,34 +397,13 @@ class TicketDatabase:
         else:
             attraction_short = attraction_name.upper()
         
-        # Get ticket data for the specific attraction
-        attraction_col = f"{attraction_short}_pax"
-        used_col = f"{attraction_short}_used"
-        
-        cursor.execute(f'''
-            SELECT {attraction_col}, {used_col}, is_synced
-            FROM tickets
-            WHERE ticket_no = ?
-        ''', (ticket_no,))
-        
-        result = cursor.fetchone()
-        
-        if not result:
-            # Log failed scan
-            cursor.execute('''
-                INSERT INTO scan_history (ticket_no, result, reason)
-                VALUES (?, 'FAILED', 'Invalid QR - Ticket not found')
-            ''', (ticket_no,))
-            conn.commit()
-            conn.close()
-            return {
-                'valid': False,
-                'reason': 'Invalid QR - Ticket not found',
-                'persons_allowed': 0,
-                'persons_entered': 0
-            }
-        
-        persons_allowed, persons_entered, is_synced = result
+        # Get passenger count for this attraction from QR code
+        # Use gate mapping from ticket parser (loaded from config)
+        gate_code = self.ticket_parser.gate_mapping.get(attraction_short.upper())
+        if not gate_code:
+            # Fallback to first gate in mapping if attraction not found
+            gate_code = list(self.ticket_parser.gate_mapping.values())[0] if self.ticket_parser.gate_mapping else '01'
+        persons_allowed = gate_info.get(gate_code, 0)
         
         # Check if ticket is valid for this attraction
         if persons_allowed == 0:
@@ -367,7 +412,7 @@ class TicketDatabase:
             cursor.execute('''
                 INSERT INTO scan_history (ticket_no, result, reason)
                 VALUES (?, 'FAILED', ?)
-            ''', (ticket_no, reason))
+            ''', (reference_no, reason))
             conn.commit()
             conn.close()
             return {
@@ -377,13 +422,57 @@ class TicketDatabase:
                 'persons_entered': 0
             }
         
+        # Get ticket data for the specific attraction
+        attraction_col = f"{attraction_short}_pax"
+        used_col = f"{attraction_short}_used"
+        
+        # Check if ticket exists in database
+        cursor.execute(f'''
+            SELECT {attraction_col}, {used_col}, is_synced, booking_date, reference_no
+            FROM tickets
+            WHERE ticket_no = ?
+        ''', (reference_no,))
+        
+        result = cursor.fetchone()
+        
+        # If ticket doesn't exist but HMAC is valid, create it automatically (offline mode)
+        if not result:
+            # Extract passenger counts for all attractions using gate mapping from config
+            a_pax = gate_info.get(self.ticket_parser.gate_mapping.get('A', '01'), 0)
+            b_pax = gate_info.get(self.ticket_parser.gate_mapping.get('B', '02'), 0)
+            c_pax = gate_info.get(self.ticket_parser.gate_mapping.get('C', '03'), 0)
+            
+            # Format booking_date as YYYY-MM-DD for database
+            formatted_date = f"{booking_date[:4]}-{booking_date[4:6]}-{booking_date[6:8]}"
+            
+            # Insert new ticket (is_synced = 0 because it was created offline)
+            cursor.execute('''
+                INSERT INTO tickets 
+                (ticket_no, booking_date, reference_no, A_pax, A_used, B_pax, B_used, C_pax, C_used, is_synced)
+                VALUES (?, ?, ?, ?, 0, ?, 0, ?, 0, 0)
+            ''', (reference_no, formatted_date, reference_no, a_pax, b_pax, c_pax))
+            
+            # Set initial values
+            persons_entered = 0
+            print(f"[OFFLINE] Created new ticket {reference_no} from QR code (attraction {attraction_short}: {persons_allowed} passengers)")
+        
+        else:
+            persons_allowed_db, persons_entered, is_synced, db_booking_date, db_reference_no = result
+            
+            # Use passenger count from database if it exists (server may have updated it)
+            # But also validate against QR code - they should match
+            if persons_allowed_db != persons_allowed:
+                # Log warning but use database value (server is source of truth)
+                print(f"[WARNING] QR code passenger count ({persons_allowed}) differs from database ({persons_allowed_db}) for {reference_no}")
+                persons_allowed = persons_allowed_db
+        
         # Check if all persons have already entered
         if persons_entered >= persons_allowed:
             # Log failed scan
             cursor.execute('''
                 INSERT INTO scan_history (ticket_no, result, reason)
                 VALUES (?, 'FAILED', 'QR already scanned - All entries used')
-            ''', (ticket_no,))
+            ''', (reference_no,))
             conn.commit()
             conn.close()
             return {
@@ -400,17 +489,23 @@ class TicketDatabase:
                 is_synced = 0,
                 last_scan = CURRENT_TIMESTAMP
             WHERE ticket_no = ? AND {used_col} < {attraction_col}
-        ''', (ticket_no,))
+        ''', (reference_no,))
         
         # Check if update was successful
         if cursor.rowcount == 0:
+            # Re-fetch to get current count before closing
+            cursor.execute(f'SELECT {used_col} FROM tickets WHERE ticket_no = ?', (reference_no,))
+            current_result = cursor.fetchone()
+            persons_entered = current_result[0] if current_result else persons_entered
+            
             # Log failed scan
             cursor.execute('''
                 INSERT INTO scan_history (ticket_no, result, reason)
                 VALUES (?, 'FAILED', 'QR already scanned - All entries used')
-            ''', (ticket_no,))
+            ''', (reference_no,))
             conn.commit()
             conn.close()
+            
             return {
                 'valid': False,
                 'reason': 'QR already scanned - All entries used',
@@ -422,7 +517,7 @@ class TicketDatabase:
         cursor.execute('''
             INSERT INTO scan_history (ticket_no, result, reason)
             VALUES (?, 'SUCCESS', 'Valid Entry')
-        ''', (ticket_no,))
+        ''', (reference_no,))
         
         conn.commit()
         conn.close()

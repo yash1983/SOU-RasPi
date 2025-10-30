@@ -50,6 +50,11 @@ class Config:
                 "backup_interval": 3600,  # 1 hour
                 "max_backups": 7
             },
+            "gate_mapping": {
+                "A": "01",
+                "B": "07",
+                "C": "16"
+            },
             "logging": {
                 "level": "INFO",
                 "file": "sou_system.log",
