@@ -10,6 +10,7 @@
   "services": {
     "fetch_interval": 10,
     "sync_interval": 5,
+    "status_check_interval": 2,
     "fetch_enabled": true,
     "sync_enabled": true,
     "cleanup_enabled": true,

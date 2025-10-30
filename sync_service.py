@@ -83,26 +83,60 @@ class SyncService:
             return False
     
     def get_all_unsynced_tickets(self):
-        """Get all unsynced tickets from all attraction databases"""
-        all_unsynced = {}
-        
+        """Get all unsynced tickets from all attraction databases and merge usage across gates"""
+        # Collect set of all unsynced ticket_nos across DBs
+        unsynced_set = set()
         for attraction in self.attractions:
             db = self.databases[attraction]
-            unsynced_tickets = db.get_unsynced_tickets()
-            
-            for ticket_no in unsynced_tickets:
-                # Skip dummy tickets if configured to do so
+            for ticket_no in db.get_unsynced_tickets():
                 if config.get('services.skip_dummy_sync', True) and ticket_no.endswith('-dummy'):
                     self.logger.debug(f"Skipping dummy ticket: {ticket_no}")
                     continue
-                    
-                if ticket_no not in all_unsynced:
-                    # Get ticket data from the first database that has it
-                    ticket_data = db.get_ticket_for_sync(ticket_no)
-                    if ticket_data:
-                        all_unsynced[ticket_no] = ticket_data
-        
-        return all_unsynced
+                unsynced_set.add(ticket_no)
+
+        merged = {}
+        for ticket_no in unsynced_set:
+            merged_record = None
+            # Initialize aggregation containers
+            agg = {
+                'bookingDate': None,
+                'referenceNo': None,
+                'attractions': {
+                    'A': {'pax': 0, 'used': 0},
+                    'B': {'pax': 0, 'used': 0},
+                    'C': {'pax': 0, 'used': 0},
+                }
+            }
+
+            # Pull data from all DBs that have this ticket and merge by taking max used/pax
+            for attraction in self.attractions:
+                db = self.databases[attraction]
+                if not db.ticket_exists(ticket_no):
+                    continue
+                data = db.get_ticket_for_sync(ticket_no)
+                if not data:
+                    continue
+                # Initialize reference/booking once
+                if not agg['referenceNo']:
+                    agg['referenceNo'] = data.get('referenceNo')
+                if not agg['bookingDate']:
+                    agg['bookingDate'] = data.get('bookingDate')
+
+                for gate in ('A', 'B', 'C'):
+                    pax = (data.get('attractions', {}).get(gate, {}) or {}).get('pax', 0)
+                    used = (data.get('attractions', {}).get(gate, {}) or {}).get('used', 0)
+                    # Pax: take max (server may send higher pax later)
+                    if pax > agg['attractions'][gate]['pax']:
+                        agg['attractions'][gate]['pax'] = pax
+                    # Used: take max across DBs (captures scans on any gate/DB)
+                    if used > agg['attractions'][gate]['used']:
+                        agg['attractions'][gate]['used'] = used
+
+            # Only include if we had any data
+            if agg['referenceNo']:
+                merged[ticket_no] = agg
+
+        return merged
     
     def sync_unsynced_tickets(self):
         """Sync all unsynced tickets to server"""

@@ -156,6 +156,8 @@ class AttractionCScanner:
                         continue
                 
                 # Show waiting screen
+                # Refresh connection status at a throttled cadence
+                self.display.maybe_update_connection_status()
                 today_scans = self.db.get_today_scans()
                 db_stats = self.db.get_stats()
                 waiting_screen = self.display.create_waiting_screen(today_scans, db_stats=db_stats)

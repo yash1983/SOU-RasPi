@@ -18,6 +18,13 @@ class DisplayManager:
         self.is_online = self.check_internet_connection()
         self.last_scan_time = 0
         self.scan_cooldown = 3.0  # 3 seconds cooldown
+        # Throttled connection status checks
+        self.last_status_check_time = 0.0
+        try:
+            from config import config
+            self.status_check_interval = float(config.get('services.status_check_interval', 5))
+        except Exception:
+            self.status_check_interval = 5.0
         
     def check_internet_connection(self):
         """Check if device is online"""
@@ -232,6 +239,13 @@ class DisplayManager:
     def update_connection_status(self):
         """Update internet connection status"""
         self.is_online = self.check_internet_connection()
+    
+    def maybe_update_connection_status(self):
+        """Update connection status at most once per configured interval"""
+        now = time.time()
+        if now - self.last_status_check_time >= self.status_check_interval:
+            self.is_online = self.check_internet_connection()
+            self.last_status_check_time = now
     
     def can_scan(self):
         """Check if enough time has passed since last scan"""
