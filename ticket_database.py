@@ -257,6 +257,26 @@ class TicketDatabase:
         # Old format - use reference_no directly
         ticket_no = ticket_no_or_qr
         
+        # FIRST CHECK: Validate ticket date matches today's date
+        # Extract date from ticket_no string (first part before first hyphen)
+        old_format_parts = ticket_no.split('-')
+        if len(old_format_parts) > 0:
+            booking_date_str = old_format_parts[0]  # First part should be date in YYYYMMDD format
+            
+            # Validate date format (8 digits)
+            if len(booking_date_str) == 8 and booking_date_str.isdigit():
+                # Get today's date in YYYYMMDD format
+                today_str = datetime.now().strftime('%Y%m%d')
+                
+                # Check if ticket date matches today's date
+                if booking_date_str != today_str:
+                    return {
+                        'valid': False,
+                        'reason': f'Invalid date - Ticket not valid for today',
+                        'persons_allowed': 0,
+                        'persons_entered': 0
+                    }
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -272,12 +292,12 @@ class TicketDatabase:
         else:
             attraction_short = attraction_name.upper()
         
-        # Get ticket data for the specific attraction
+        # Get ticket data for the specific attraction (including booking_date for date validation)
         attraction_col = f"{attraction_short}_pax"
         used_col = f"{attraction_short}_used"
         
         cursor.execute(f'''
-            SELECT {attraction_col}, {used_col}, is_synced
+            SELECT {attraction_col}, {used_col}, is_synced, booking_date
             FROM tickets
             WHERE ticket_no = ?
         ''', (ticket_no,))
@@ -293,7 +313,25 @@ class TicketDatabase:
                 'persons_entered': 0
             }
         
-        persons_allowed, persons_entered, is_synced = result
+        persons_allowed, persons_entered, is_synced, db_booking_date = result
+        
+        # SECOND CHECK: Also validate date from database booking_date
+        if db_booking_date:
+            # Convert database date (YYYY-MM-DD) to YYYYMMDD format
+            db_date_parts = db_booking_date.split('-')
+            if len(db_date_parts) == 3:
+                db_date_str = f"{db_date_parts[0]}{db_date_parts[1]}{db_date_parts[2]}"
+                today_str = datetime.now().strftime('%Y%m%d')
+                
+                # Check if database booking date matches today's date
+                if db_date_str != today_str:
+                    conn.close()
+                    return {
+                        'valid': False,
+                        'reason': f'Invalid date - Ticket not valid for today',
+                        'persons_allowed': 0,
+                        'persons_entered': 0
+                    }
         
         # Check if ticket is valid for this attraction
         if persons_allowed == 0:
@@ -361,6 +399,34 @@ class TicketDatabase:
         # Optimize for performance
         cursor.execute('PRAGMA synchronous=NORMAL')
         
+        # Get today's date ONCE at the start to ensure consistency
+        today_str = datetime.now().strftime('%Y%m%d')
+        
+        # FIRST CHECK: Validate ticket date matches today's date BEFORE any other processing
+        # Extract date from QR code string directly (format: YYYYMMDD is first part before first hyphen)
+        qr_parts = qr_code.split('-')
+        if len(qr_parts) > 0:
+            booking_date_str = qr_parts[0]  # First part should be date in YYYYMMDD format
+            
+            # Validate date format (8 digits)
+            if len(booking_date_str) == 8 and booking_date_str.isdigit():
+                # Check if ticket date matches today's date
+                if booking_date_str != today_str:
+                    # Log failed scan
+                    reason = f'Ticket date mismatch - Ticket is for {booking_date_str[:4]}-{booking_date_str[4:6]}-{booking_date_str[6:8]}, today is {today_str[:4]}-{today_str[4:6]}-{today_str[6:8]}'
+                    cursor.execute('''
+                        INSERT INTO scan_history (ticket_no, result, reason)
+                        VALUES (?, 'FAILED', ?)
+                    ''', (qr_code[:50] if len(qr_code) > 50 else qr_code, reason))
+                    conn.commit()
+                    conn.close()
+                    return {
+                        'valid': False,
+                        'reason': f'Invalid date - Ticket not valid for today',
+                        'persons_allowed': 0,
+                        'persons_entered': 0
+                    }
+        
         # Parse QR code and validate HMAC
         parsed_ticket = self.ticket_parser.parse_qr_code(qr_code)
         
@@ -370,7 +436,7 @@ class TicketDatabase:
             cursor.execute('''
                 INSERT INTO scan_history (ticket_no, result, reason)
                 VALUES (?, 'FAILED', ?)
-            ''', (qr_code[:50], error_reason))  # Store first 50 chars if too long
+            ''', (qr_code[:50] if len(qr_code) > 50 else qr_code, error_reason))  # Store first 50 chars if too long
             conn.commit()
             conn.close()
             return {
@@ -458,6 +524,31 @@ class TicketDatabase:
         
         else:
             persons_allowed_db, persons_entered, is_synced, db_booking_date, db_reference_no = result
+            
+            # SECOND CHECK: Validate date from database booking_date matches today
+            # Use the same today_str variable for consistency
+            if db_booking_date:
+                # Convert database date (YYYY-MM-DD) to YYYYMMDD format
+                db_date_parts = db_booking_date.split('-')
+                if len(db_date_parts) == 3:
+                    db_date_str = f"{db_date_parts[0]}{db_date_parts[1]}{db_date_parts[2]}"
+                    
+                    # Check if database booking date matches today's date
+                    if db_date_str != today_str:
+                        # Log failed scan
+                        reason = f'Ticket date mismatch - Database booking date is {db_booking_date}, today is {today_str[:4]}-{today_str[4:6]}-{today_str[6:8]}'
+                        cursor.execute('''
+                            INSERT INTO scan_history (ticket_no, result, reason)
+                            VALUES (?, 'FAILED', ?)
+                        ''', (reference_no, reason))
+                        conn.commit()
+                        conn.close()
+                        return {
+                            'valid': False,
+                            'reason': f'Invalid date - Ticket not valid for today',
+                            'persons_allowed': 0,
+                            'persons_entered': 0
+                        }
             
             # Use passenger count from database if it exists (server may have updated it)
             # But also validate against QR code - they should match

@@ -2,7 +2,7 @@
 # This script helps deploy code to your Raspberry Pi
 
 param(
-    [string]$PiIP = "192.168.8.56",
+    [string]$PiIP = "192.168.8.76",
     [string]$PiUser = "yashr",
     [string]$RemotePath = "/home/yashr/SOU",
     [string]$Method = "scp"
@@ -40,13 +40,9 @@ switch ($Method.ToLower()) {
             exit 1
         }
         
-        # Create remote directory if it doesn't exist
-        Write-Host "Creating remote directory..." -ForegroundColor Yellow
-        ssh -i $env:USERPROFILE\.ssh\keyfile $PiUser@$PiIP "sudo mkdir -p $RemotePath && sudo chown yash:yash $RemotePath"
-        
-        # Sync files using rsync
+        # Sync files using rsync (directory already exists)
         Write-Host "Syncing files..." -ForegroundColor Yellow
-        rsync -avz --delete --exclude='.git' --exclude='*.log' --exclude='node_modules' -e "ssh -i $env:USERPROFILE\.ssh\keyfile" ./ $PiUser@$PiIP`:$RemotePath/
+        rsync -avz --delete --exclude='.git' --exclude='*.log' --exclude='node_modules' ./ $PiUser@$PiIP`:$RemotePath/
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Deployment successful!" -ForegroundColor Green
@@ -58,13 +54,9 @@ switch ($Method.ToLower()) {
     "scp" {
         Write-Host "Using SCP method..." -ForegroundColor Cyan
         
-        # Create remote directory
-        Write-Host "Creating remote directory..." -ForegroundColor Yellow
-        ssh -i $env:USERPROFILE\.ssh\keyfile $PiUser@$PiIP "sudo mkdir -p $RemotePath && sudo chown yash:yash $RemotePath"
-        
-        # Copy files
+        # Copy files directly (directory already exists)
         Write-Host "Copying files..." -ForegroundColor Yellow
-        scp -i $env:USERPROFILE\.ssh\keyfile -r -o StrictHostKeyChecking=no ./* $PiUser@$PiIP`:$RemotePath/
+        scp -r -o StrictHostKeyChecking=no ./* $PiUser@$PiIP`:$RemotePath/
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Deployment successful!" -ForegroundColor Green
@@ -78,7 +70,7 @@ switch ($Method.ToLower()) {
         Write-Host "This will pull the latest code from your Git repository on the Pi." -ForegroundColor Yellow
         
         # SSH into Pi and pull latest code
-        ssh -i $env:USERPROFILE\.ssh\keyfile $PiUser@$PiIP "cd $RemotePath && git pull origin main"
+        ssh $PiUser@$PiIP "cd $RemotePath && git pull origin main"
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Git pull successful!" -ForegroundColor Green

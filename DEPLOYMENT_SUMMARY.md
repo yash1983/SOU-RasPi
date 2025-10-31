@@ -1,7 +1,7 @@
 # SOU Raspberry Pi Deployment Summary
 
 ## 🎯 New Raspberry Pi Details
-- **IP Address**: 192.168.8.56
+- **IP Address**: 192.168.8.76
 - **Username**: yashr
 - **Deployment Path**: /home/yashr/SOU
 
@@ -39,19 +39,19 @@ deploy_windows.bat
 
 ### Option 2: PowerShell
 ```powershell
-.\deploy.ps1 -PiIP 192.168.8.56 -PiUser yashr -RemotePath /home/yashr/SOU-RasPi
+.\deploy.ps1 -PiIP 192.168.8.76 -PiUser yashr -RemotePath /home/yashr/SOU
 ```
 
 ### Option 3: Manual SCP (after SSH key setup)
 ```bash
-scp -r ./* yashr@192.168.8.56:/home/yashr/SOU-RasPi/
+scp -r ./* yashr@192.168.8.76:/home/yashr/SOU/
 ```
 
 ### Option 4: Git Clone (if repository is set up)
 ```bash
-ssh yashr@192.168.8.56
+ssh yashr@192.168.8.76
 cd /home/yashr
-git clone <your-repo-url> SOU-RasPi
+git clone <your-repo-url> SOU
 ```
 
 ## 🔧 Post-Deployment Setup
@@ -60,10 +60,10 @@ After deploying files, SSH into the Pi and run:
 
 ```bash
 # SSH into Pi
-ssh yashr@192.168.8.56
+ssh yashr@192.168.8.76
 
 # Navigate to project
-cd /home/yashr/SOU-RasPi
+cd /home/yashr/SOU
 
 # Run setup script
 bash setup_pi.sh
@@ -102,10 +102,10 @@ The Pi requires SSH key authentication. Set up keys:
 ssh-keygen -t rsa -b 4096
 
 # Copy to Pi
-ssh-copy-id yashr@192.168.8.56
+ssh-copy-id yashr@192.168.8.76
 
 # Test connection
-ssh yashr@192.168.8.56
+ssh yashr@192.168.8.76
 ```
 
 ## 📋 System Requirements
@@ -145,7 +145,7 @@ ssh yashr@192.168.8.56
 
 ### Connection Issues:
 - Check Pi IP: `hostname -I` on Pi
-- Test connectivity: `ping 192.168.8.56`
+- Test connectivity: `ping 192.168.8.76`
 - Check SSH: `sudo systemctl status ssh`
 
 ### Camera Issues:
